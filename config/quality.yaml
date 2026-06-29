@@ -1,0 +1,21 @@
+quality:
+
+  null_threshold: 0
+
+  duplicate_threshold: 0
+
+  minimum_quality_score: 95
+
+  checks:
+
+    nulls: true
+
+    duplicates: true
+
+    required_columns: true
+
+    data_types: true
+
+    referential_integrity: true
+
+    business_rules: true

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enterprise-revenue-intelligence-platform"
+version = "2.0.0"
+description = "Enterprise Revenue Intelligence Platform (ERIP)"
+readme = "README.md"
+requires-python = ">=3.12"
+
+authors = [
+    { name = "Abodunrin Oketade" }
+]
+
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=2.2",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "psutil>=7.0",
+    "openpyxl>=3.1",
+    "pyarrow>=20.0"
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = [
+    "tests"
+]

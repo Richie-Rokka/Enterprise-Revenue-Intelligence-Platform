@@ -1,0 +1,31 @@
+database:
+
+  host: localhost
+
+  port: 5432
+
+  database: revenue_intelligence
+
+  username: postgres
+
+  password: "Uncommon100%"
+
+  driver: postgresql+psycopg2
+
+  schemas:
+
+    staging: staging
+
+    analytics: analytics
+
+    monitoring: monitoring
+
+  connection:
+
+    pool_size: 10
+
+    max_overflow: 20
+
+    pool_timeout: 30
+
+    pool_recycle: 3600

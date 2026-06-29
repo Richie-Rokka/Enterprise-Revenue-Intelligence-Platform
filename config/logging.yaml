@@ -1,0 +1,23 @@
+logging:
+
+  level: INFO
+
+  log_directory: logs
+
+  log_filename: erip.log
+
+  console_logging: true
+
+  file_logging: true
+
+  rotation:
+
+    enabled: true
+
+    max_file_size_mb: 10
+
+    backup_count: 5
+
+  format:
+
+    "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
