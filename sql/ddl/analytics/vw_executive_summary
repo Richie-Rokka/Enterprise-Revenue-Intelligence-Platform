@@ -1,0 +1,83 @@
+/*
+=============================================================
+Enterprise Revenue Intelligence Platform
+Executive KPI Layer
+
+File:
+    vw_executive_summary.sql
+
+Purpose
+-------
+Provide a single-row executive summary of the business.
+
+Business Question
+-----------------
+How is the business performing overall?
+
+Business Grain
+--------------
+One Row = Entire Business
+
+Source
+------
+analytics.vw_sales
+analytics.vw_product_sales
+
+=============================================================
+*/
+
+CREATE OR REPLACE VIEW analytics.vw_executive_summary AS
+
+SELECT
+
+    /*======================================================
+      BUSINESS VOLUME
+    ======================================================*/
+
+    COUNT(DISTINCT order_id) AS total_orders,
+
+    COUNT(DISTINCT customer_id) AS total_customers,
+
+    COUNT(DISTINCT seller_id) AS total_sellers,
+
+    (
+        SELECT COUNT(*)
+        FROM analytics.vw_product_sales
+    ) AS total_product_categories,
+
+    SUM(sales_line_count) AS total_sales_lines,
+
+    /*======================================================
+      REVENUE
+    ======================================================*/
+
+    ROUND(
+        SUM(total_revenue)::numeric,
+        2
+    ) AS total_revenue,
+
+    ROUND(
+        (
+            SUM(total_revenue)
+            /
+            NULLIF(
+                COUNT(DISTINCT order_id),
+                0
+            )
+        )::numeric,
+        2
+    ) AS average_order_value,
+
+    ROUND(
+        (
+            SUM(total_revenue)
+            /
+            NULLIF(
+                SUM(sales_line_count),
+                0
+            )
+        )::numeric,
+        2
+    ) AS average_sales_line_value
+
+FROM analytics.vw_sales;

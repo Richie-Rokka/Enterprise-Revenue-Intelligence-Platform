@@ -1,0 +1,23 @@
+"""
+Database Connection Utility
+"""
+
+from sqlalchemy import create_engine
+from config.config import DB_CONFIG
+
+
+def get_engine():
+    """
+    Create and return a PostgreSQL SQLAlchemy engine.
+    """
+
+    connection_string = (
+        f"postgresql+psycopg2://"
+        f"{DB_CONFIG['user']}:"
+        f"{DB_CONFIG['password']}@"
+        f"{DB_CONFIG['host']}:"
+        f"{DB_CONFIG['port']}/"
+        f"{DB_CONFIG['database']}"
+    )
+
+    return create_engine(connection_string)
