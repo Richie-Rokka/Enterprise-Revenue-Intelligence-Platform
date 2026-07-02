@@ -10,6 +10,8 @@ pipeline:
 
     - warehouse
 
+    - semantic
+
   execution:
 
     batch_size: 10000
@@ -22,8 +24,6 @@ pipeline:
 
   warehouse:
 
-    build_views: true
-
     build_constraints: true
 
     run_quality_checks: true
@@ -32,10 +32,8 @@ pipeline:
 
   semantic:
 
-    build_views: true
+    deploy_views: true
 
-    build_constraints: true
+    validate_views: true
 
-    run_quality_checks: true
-
-    generate_summary: true  
+    generate_summary: true

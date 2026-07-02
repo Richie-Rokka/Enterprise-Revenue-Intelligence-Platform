@@ -31,8 +31,8 @@ from src.observability import get_logger
 # NOTE:
 # Until we refactor the SQLExecutor into a shared component,
 # we reuse the Warehouse executor.
-from src.warehouse.executor import (
-    SQLExecutor,
+from src.database.database_executor import (
+    DatabaseExecutor,
     ExecutionResult,
 )
 
@@ -84,7 +84,7 @@ class SemanticManager:
 
         self.registry = SemanticRegistry()
 
-        self.executor = SQLExecutor()
+        self.executor = DatabaseExecutor()
 
         self.validator = SemanticValidator()
 
@@ -109,9 +109,9 @@ class SemanticManager:
         # Execute SQL
         # ---------------------------------------------------------
 
-        execution_results = self.executor.execute_all(
+        execution_results = self.executor.execute_many(
 
-            list(self.registry)
+            [script.path for script in self.registry]
 
         )
 

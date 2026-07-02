@@ -18,7 +18,10 @@ from dataclasses import dataclass
 
 from src.observability import get_logger
 
-from .executor import SQLExecutor, ExecutionResult
+from src.database.database_executor import (
+    DatabaseExecutor,
+    ExecutionResult,
+)
 from .registry import DDLRegistry
 from .validator import WarehouseValidator, ValidationResult
 
@@ -55,7 +58,7 @@ class WarehouseManager:
 
         self.registry = DDLRegistry()
 
-        self.executor = SQLExecutor()
+        self.executor = DatabaseExecutor()
 
         self.validator = WarehouseValidator()
 
@@ -82,9 +85,9 @@ class WarehouseManager:
         # Execute SQL
         # ------------------------------------------
 
-        execution_results = self.executor.execute_all(
+        execution_results = self.executor.execute_many(
 
-            list(self.registry)
+            [script.path for script in self.registry]
 
         )
 

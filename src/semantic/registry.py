@@ -5,176 +5,145 @@ Enterprise Revenue Intelligence Platform (ERIP)
 
 Module      : registry.py
 Package     : src.semantic
-Purpose     : Semantic Layer SQL Registry
+Purpose     : Dependency-aware Semantic Registry
 Author      : ERIP
-Version     : 2.0.0
-
-Description
------------
-Discovers, validates and registers all SQL view scripts that make up the
-Enterprise Semantic Layer.
-
-Deployment Order
-----------------
-Semantic
-    ↓
-Operational
-    ↓
-Analytics
-    ↓
-Executive
-
+Version     : 2.2.0
 ===============================================================================
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from graphlib import TopologicalSorter
 from pathlib import Path
-from typing import Iterator
 
 from src.observability import get_logger
 
 
 logger = get_logger(__name__)
 
+ROOT = Path(__file__).resolve().parents[2]
+VIEWS_DIR = ROOT / "sql" / "views"
+
 
 # =============================================================================
-# SQL SCRIPT
+# Semantic Script
 # =============================================================================
-
 
 @dataclass(slots=True)
-class SQLScript:
-    """
-    Semantic SQL deployment script.
-    """
+class SemanticScript:
 
     name: str
 
     path: Path
 
-    group: str
-
-    @property
-    def filename(self) -> str:
-
-        return self.path.name
-
 
 # =============================================================================
-# REGISTRY
+# Semantic Registry
 # =============================================================================
-
 
 class SemanticRegistry:
     """
-    Enterprise Semantic Registry.
+    Enterprise dependency-aware Semantic Registry.
     """
 
-    ROOT = Path(__file__).resolve().parents[2]
+    # -------------------------------------------------------------------------
+    # File Locations
+    # -------------------------------------------------------------------------
 
-    SQL_ROOT = ROOT / "sql" / "views"
+    FILES = {
 
-    DEPLOYMENT_ORDER = (
+        "vw_sales":
+        "analytics/vw_sales.sql",
 
-        "semantic",
+        "vw_customer_sales":
+        "analytics/vw_customer_sales.sql",
 
-        "operational",
+        "vw_product_performance":
+        "analytics/vw_product_performance.sql",
 
-        "analytics",
+        "vw_seller_performance":
+        "analytics/vw_seller_performance.sql",
 
-        "executive",
+        "vw_revenue_dashboard":
+        "analytics/vw_revenue_dashboard.sql",
 
-    )
+    }
 
-    def __init__(self) -> None:
+    # -------------------------------------------------------------------------
+    # Dependency Graph
+    # -------------------------------------------------------------------------
 
-        self._scripts = self._discover()
+    DEPENDENCIES = {
+
+        "vw_sales": [],
+
+        "vw_customer_sales": [
+        "vw_sales",
+        ],
+
+        "vw_product_performance": [
+        "vw_sales",
+        ],
+
+        "vw_seller_performance": [
+        "vw_sales",
+        ],
+
+        "vw_revenue_dashboard": [
+        "vw_sales",
+        ],
+    }
 
     # -------------------------------------------------------------------------
 
-    def _discover(self) -> list[SQLScript]:
-        """
-        Discover semantic SQL files.
-        """
+    def __init__(self):
 
-        scripts: list[SQLScript] = []
+        order = self._deployment_order()
 
-        for group in self.DEPLOYMENT_ORDER:
+        self._scripts = [
 
-            folder = self.SQL_ROOT / group
+            SemanticScript(
 
-            if not folder.exists():
+                name=view,
 
-                logger.warning(
-
-                    "Semantic folder not found: %s",
-
-                    folder,
-
-                )
-
-                continue
-
-            sql_files = sorted(
-
-                folder.glob("*.sql")
+                path=VIEWS_DIR / self.FILES[view],
 
             )
 
-            for sql in sql_files:
+            for view in order
 
-                scripts.append(
+        ]
 
-                    SQLScript(
+    # -------------------------------------------------------------------------
 
-                        name=sql.stem,
+    def _deployment_order(self) -> list[str]:
+        """
+        Compute dependency order.
+        """
 
-                        path=sql,
+        sorter = TopologicalSorter()
 
-                        group=group,
+        for view, dependencies in self.DEPENDENCIES.items():
 
-                    )
+            sorter.add(
 
-                )
+                view,
 
-        return scripts
+                *dependencies,
+
+            )
+
+        return list(sorter.static_order())
 
     # -------------------------------------------------------------------------
 
     def validate(self) -> None:
         """
-        Validate registry.
+        Validate semantic assets.
         """
 
-        missing_folders = []
-
-        for group in self.DEPLOYMENT_ORDER:
-
-            folder = self.SQL_ROOT / group
-
-            if not folder.exists():
-
-                missing_folders.append(folder)
-
-        if missing_folders:
-
-            raise FileNotFoundError(
-
-                "Missing Semantic folders:\n"
-
-                + "\n".join(
-
-                    str(folder)
-
-                    for folder in missing_folders
-
-                )
-
-            )
-
-        missing_scripts = [
+        missing = [
 
             script.path
 
@@ -184,17 +153,17 @@ class SemanticRegistry:
 
         ]
 
-        if missing_scripts:
+        if missing:
 
             raise FileNotFoundError(
 
-                "Missing Semantic SQL:\n"
+                "Missing semantic SQL scripts:\n"
 
                 + "\n".join(
 
                     str(path)
 
-                    for path in missing_scripts
+                    for path in missing
 
                 )
 
@@ -202,7 +171,7 @@ class SemanticRegistry:
 
         logger.info(
 
-            "Semantic Registry Validated (%s scripts)",
+            "Semantic Registry Validated (%d scripts)",
 
             len(self._scripts),
 
@@ -210,46 +179,23 @@ class SemanticRegistry:
 
     # -------------------------------------------------------------------------
 
-    def __iter__(self) -> Iterator[SQLScript]:
+    @property
+    def paths(self) -> list[Path]:
+
+        return [
+
+            script.path
+
+            for script in self._scripts
+
+        ]
+
+    # -------------------------------------------------------------------------
+
+    def __iter__(self):
 
         return iter(self._scripts)
 
-    # -------------------------------------------------------------------------
-
-    def __len__(self) -> int:
+    def __len__(self):
 
         return len(self._scripts)
-
-    # -------------------------------------------------------------------------
-
-    @property
-    def scripts(self) -> list[SQLScript]:
-
-        return self._scripts.copy()
-
-    # -------------------------------------------------------------------------
-
-    def summary(self) -> dict[str, int]:
-        """
-        Deployment summary.
-        """
-
-        return {
-
-            group: len(
-
-                [
-
-                    script
-
-                    for script in self._scripts
-
-                    if script.group == group
-
-                ]
-
-            )
-
-            for group in self.DEPLOYMENT_ORDER
-
-        }

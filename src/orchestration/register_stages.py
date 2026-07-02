@@ -26,11 +26,11 @@ def register_stages() -> None:
     StageRegistry.clear()
 
     StageRegistry.register(
-        "warehouse",
+        WarehouseStage.name,
         WarehouseStage,
     )
 
     StageRegistry.register(
-        "semantic",
+        SemanticStage.name,
         SemanticStage,
     )
