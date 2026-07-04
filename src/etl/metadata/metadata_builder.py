@@ -7,7 +7,7 @@ Module      : metadata_builder.py
 Package     : src.etl.metadata
 Purpose     : Enterprise Metadata Builder
 Author      : ERIP
-Version     : 3.0.0
+Version     : 3.2.0
 
 Description
 -----------
@@ -144,19 +144,23 @@ class MetadataBuilder:
 
         )
 
-        business_df = (
+        business_df = dataframe[business_columns].copy()
 
-            dataframe[business_columns]
+        business_df = business_df.astype(object)
 
-            .copy()
+        business_df = business_df.where(
 
-            .fillna("")
+            business_df.notna(),
+
+            ""
 
         )
 
         return business_df.apply(
 
-            lambda row: hashlib.sha256(
+            lambda row:
+
+            hashlib.sha256(
 
                 "|".join(
 

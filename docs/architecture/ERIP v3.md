@@ -273,3 +273,9 @@ Phase 4 - Executive BI - API layer - ML-ready feature pipelines
 
 Every component should be independently testable, reusable, and
 replaceable without changing the overall platform architecture.
+
+Master/reference entities → singular (customer, product, seller)
+
+Transactional entities → plural (orders, order_items, order_payments, order_reviews)
+
+Reference/lookup tables → descriptive singular (product_category_translation, geolocation)

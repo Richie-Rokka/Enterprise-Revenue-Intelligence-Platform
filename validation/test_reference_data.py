@@ -30,7 +30,7 @@ Source System
     • OLIST
 
 ETL Version
-    • 2.0.0
+    • 3.2.0
 
 Author:
     Abodunrin Oketade
@@ -99,7 +99,7 @@ class ReferenceDataValidator(BaseValidator):
                     """
                     SELECT COUNT(*)
                     FROM metadata.ref_etl_version
-                    WHERE etl_version = '2.0.0'
+                    WHERE etl_version = '3.2.0'
                     """,
                     1,
                     "ETL Version"

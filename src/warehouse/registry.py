@@ -7,15 +7,18 @@ Module      : registry.py
 Package     : src.warehouse
 Purpose     : Enterprise Warehouse SQL Registry
 Author      : ERIP
-Version     : 2.1.0
+Version     : 2.2.0
 
 Description
 -----------
 Registers, validates and orders SQL deployment scripts for the
-Enterprise Revenue Warehouse.
+Enterprise Revenue Intelligence Platform (ERIP).
 
-The registry discovers SQL files automatically and executes them in
-dependency order.
+The registry discovers SQL deployment files automatically and returns
+them in dependency order.
+
+Only required deployment folders are enforced during validation.
+Optional deployment folders are discovered when present.
 
 ===============================================================================
 """
@@ -49,7 +52,6 @@ class SQLScript:
 
     @property
     def filename(self) -> str:
-
         return self.path.name
 
 
@@ -59,32 +61,51 @@ class SQLScript:
 
 class DDLRegistry:
     """
-    Enterprise Warehouse Registry.
+    Enterprise Warehouse SQL Registry.
+
+    Discovers SQL deployment scripts and exposes them in dependency order.
     """
 
     ROOT = Path(__file__).resolve().parents[2]
 
     SQL_ROOT = ROOT / "sql" / "ddl"
 
-    DEPLOYMENT_ORDER = (
+    # -------------------------------------------------------------------------
+    # Required deployment folders
+    # -------------------------------------------------------------------------
+
+    REQUIRED_GROUPS = (
         "schemas",
         "staging",
         "metadata",
         "dimensions",
+    )
+
+    # -------------------------------------------------------------------------
+    # Optional deployment folders
+    # -------------------------------------------------------------------------
+
+    OPTIONAL_GROUPS = (
         "facts",
         "indexes",
         "constraints",
     )
 
+    # -------------------------------------------------------------------------
+
+    DEPLOYMENT_ORDER = REQUIRED_GROUPS + OPTIONAL_GROUPS
+
+    # -------------------------------------------------------------------------
+
     def __init__(self) -> None:
 
         self._scripts = self._discover()
 
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     def _discover(self) -> list[SQLScript]:
         """
-        Discover SQL scripts.
+        Discover deployment SQL scripts.
         """
 
         scripts: list[SQLScript] = []
@@ -95,16 +116,23 @@ class DDLRegistry:
 
             if not folder.exists():
 
-                logger.warning(
-                    "Deployment folder not found: %s",
-                    folder,
-                )
+                if group in self.REQUIRED_GROUPS:
+
+                    logger.error(
+                        "Required deployment folder not found: %s",
+                        folder,
+                    )
+
+                else:
+
+                    logger.debug(
+                        "Optional deployment folder not found: %s",
+                        folder,
+                    )
 
                 continue
 
-            sql_files = sorted(
-                folder.glob("*.sql")
-            )
+            sql_files = sorted(folder.glob("*.sql"))
 
             for sql in sql_files:
 
@@ -117,21 +145,28 @@ class DDLRegistry:
                         path=sql,
 
                         group=group,
+
                     )
+
                 )
+
+        logger.info(
+            "Discovered %s deployment SQL scripts.",
+            len(scripts),
+        )
 
         return scripts
 
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     def validate(self) -> None:
         """
         Validate deployment registry.
         """
 
-        missing_folders = []
+        missing_folders: list[Path] = []
 
-        for group in self.DEPLOYMENT_ORDER:
+        for group in self.REQUIRED_GROUPS:
 
             folder = self.SQL_ROOT / group
 
@@ -143,12 +178,16 @@ class DDLRegistry:
 
             raise FileNotFoundError(
 
-                "Missing SQL folders:\n"
+                "Missing required SQL deployment folders:\n"
 
                 + "\n".join(
+
                     str(path)
+
                     for path in missing_folders
+
                 )
+
             )
 
         missing_scripts = [
@@ -158,67 +197,79 @@ class DDLRegistry:
             for script in self._scripts
 
             if not script.path.exists()
+
         ]
 
         if missing_scripts:
 
             raise FileNotFoundError(
 
-                "Missing SQL scripts:\n"
+                "Missing SQL deployment scripts:\n"
 
                 + "\n".join(
+
                     str(path)
+
                     for path in missing_scripts
+
                 )
+
             )
 
         logger.info(
+
             "Warehouse Registry Validated (%s scripts)",
+
             len(self._scripts),
+
         )
 
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     def __iter__(self) -> Iterator[SQLScript]:
 
         return iter(self._scripts)
 
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     def __len__(self) -> int:
 
         return len(self._scripts)
 
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     @property
     def scripts(self) -> list[SQLScript]:
 
         return self._scripts.copy()
 
-    # ---------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     def summary(self) -> dict:
         """
-        Registry summary.
+        Return registry summary.
         """
 
-        summary = {}
+        return {
 
-        for group in self.DEPLOYMENT_ORDER:
+            "required_groups": len(self.REQUIRED_GROUPS),
 
-            summary[group] = len(
+            "optional_groups": len(self.OPTIONAL_GROUPS),
 
-                [
+            "registered_scripts": len(self._scripts),
 
-                    script
+            "groups": {
+
+                group: sum(
+
+                    script.group == group
 
                     for script in self._scripts
 
-                    if script.group == group
+                )
 
-                ]
+                for group in self.DEPLOYMENT_ORDER
 
-            )
+            },
 
-        return summary
+        }

@@ -32,7 +32,7 @@ Platform:
     Enterprise Revenue Intelligence Platform (ERIP)
 
 Version:
-    2.0.0
+    3.2.0
 ===============================================================================
 */
 

@@ -75,7 +75,7 @@ class BaseLoader(ABC):
 
         self.load_id = uuid.uuid4()
 
-        self.etl_version = "3.1.0"
+        self.etl_version = "3.2.0"
 
         # ---------------------------------------------------------------------
         # Runtime Metrics
