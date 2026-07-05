@@ -5,9 +5,9 @@ Enterprise Revenue Intelligence Platform (ERIP)
 
 Module      : manager.py
 Package     : src.semantic
-Purpose     : Semantic Layer Manager
+Purpose     : Enterprise Semantic Layer Manager
 Author      : ERIP
-Version     : 2.0.0
+Version     : 2.3.0
 
 Description
 -----------
@@ -16,8 +16,10 @@ Public interface for all Semantic Layer operations.
 Responsibilities
 ----------------
 - Deploy semantic layer
+- Refresh semantic layer
 - Validate semantic layer
-- Report deployment status
+- Report semantic layer status
+- Report framework version
 
 ===============================================================================
 """
@@ -28,9 +30,6 @@ from dataclasses import dataclass
 
 from src.observability import get_logger
 
-# NOTE:
-# Until we refactor the SQLExecutor into a shared component,
-# we reuse the Warehouse executor.
 from src.database.database_executor import (
     DatabaseExecutor,
     ExecutionResult,
@@ -41,7 +40,6 @@ from .validator import (
     SemanticValidator,
     ValidationResult,
 )
-
 
 logger = get_logger(__name__)
 
@@ -77,7 +75,7 @@ class SemanticManager:
     """
     Enterprise Semantic Manager.
 
-    Public interface for semantic deployment.
+    Public entry point for all Semantic Layer operations.
     """
 
     def __init__(self) -> None:
@@ -88,26 +86,37 @@ class SemanticManager:
 
         self.validator = SemanticValidator()
 
+        # -----------------------------------------------------------------
+        # Cached deployment state.
+        #
+        # The manager intentionally performs no database work during
+        # construction. Validation is performed lazily when required.
+        # -----------------------------------------------------------------
+
+        self._is_deployed = False
+
+    # -------------------------------------------------------------------------
+    # Internal Deployment
     # -------------------------------------------------------------------------
 
-    def rebuild(self) -> SemanticDeploymentResult:
+    def _deploy(self) -> SemanticDeploymentResult:
         """
-        Deploy the complete semantic layer.
+        Deploy the complete Semantic Layer.
         """
 
         logger.info("=" * 60)
         logger.info("SEMANTIC LAYER DEPLOYMENT STARTED")
         logger.info("=" * 60)
 
-        # ---------------------------------------------------------
+        # -----------------------------------------------------------------
         # Validate Registry
-        # ---------------------------------------------------------
+        # -----------------------------------------------------------------
 
         self.registry.validate()
 
-        # ---------------------------------------------------------
-        # Execute SQL
-        # ---------------------------------------------------------
+        # -----------------------------------------------------------------
+        # Execute SQL Scripts
+        # -----------------------------------------------------------------
 
         execution_results = self.executor.execute_many(
 
@@ -115,13 +124,17 @@ class SemanticManager:
 
         )
 
-        # ---------------------------------------------------------
-        # Validate Semantic Layer
-        # ---------------------------------------------------------
+        # -----------------------------------------------------------------
+        # Validate Deployment
+        # -----------------------------------------------------------------
 
         validation = self.validator.validate()
 
         success = validation.passed
+
+        # Cache deployment state
+
+        self._is_deployed = success
 
         if success:
 
@@ -150,13 +163,56 @@ class SemanticManager:
             execution_results=execution_results,
 
             validation_result=validation,
+
         )
+
+    # -------------------------------------------------------------------------
+    # Public API
+    # -------------------------------------------------------------------------
+
+    def deploy(self) -> SemanticDeploymentResult:
+        """
+        Deploy the Semantic Layer.
+        """
+
+        return self._deploy()
+
+    # -------------------------------------------------------------------------
+
+    def rebuild(self) -> SemanticDeploymentResult:
+        """
+        Backward-compatible alias for deploy().
+        """
+
+        logger.warning(
+
+            "SemanticManager.rebuild() is deprecated. "
+            "Use deploy() instead."
+
+        )
+
+        return self.deploy()
+
+    # -------------------------------------------------------------------------
+
+    def refresh(self) -> SemanticDeploymentResult:
+        """
+        Refresh the Semantic Layer.
+
+        Current implementation performs a complete deployment.
+        """
+
+        logger.info("Refreshing Semantic Layer...")
+
+        return self.deploy()
 
     # -------------------------------------------------------------------------
 
     def validate(self) -> ValidationResult:
         """
-        Validate semantic layer.
+        Validate the Semantic Layer.
+
+        Validation always executes against the database.
         """
 
         return self.validator.validate()
@@ -165,18 +221,31 @@ class SemanticManager:
 
     def status(self) -> str:
         """
-        Return semantic deployment status.
+        Return Semantic Layer status.
+
+        Performs a one-time validation if the deployment state
+        has not yet been established.
         """
 
-        validation = self.validator.validate()
+        if not self._is_deployed:
 
-        return "READY" if validation.passed else "INVALID"
+            try:
+
+                validation = self.validator.validate()
+
+                self._is_deployed = validation.passed
+
+            except Exception:
+
+                self._is_deployed = False
+
+        return "READY" if self._is_deployed else "NOT DEPLOYED"
 
     # -------------------------------------------------------------------------
 
     def version(self) -> str:
         """
-        Framework version.
+        Return framework version.
         """
 
-        return "2.0.0"
+        return "2.3.0"

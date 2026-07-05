@@ -7,7 +7,7 @@ Module      : database_executor.py
 Package     : src.database
 Purpose     : Enterprise Database Executor
 Author      : ERIP
-Version     : 2.1.0
+Version     : 2.2.0
 
 Description
 -----------
@@ -22,12 +22,20 @@ Responsibilities
 - Log execution metrics
 - Return standardized execution results
 
+Capabilities
+------------
+- Execute SQL files
+- Execute SQL statements
+- Transaction management
+- Execution timing
+- Enterprise logging
+- Standardized execution results
+
 Future Enhancements
 -------------------
 - Retry policies
 - Timeout management
 - Audit logging
-- Execution metrics
 - Parallel execution
 - Dependency resolution
 
@@ -183,6 +191,99 @@ class DatabaseExecutor:
             return ExecutionResult(
 
                 script_name=script_name,
+
+                success=False,
+
+                execution_time_seconds=0.0,
+
+                error=str(error),
+
+            )
+
+    # -------------------------------------------------------------------------
+
+    def execute_sql(
+        self,
+        sql: str,
+        operation_name: str = "SQL Operation",
+    ) -> ExecutionResult:
+        """
+        Execute an arbitrary SQL statement.
+
+        Parameters
+        ----------
+        sql
+            SQL statement(s) to execute.
+
+        operation_name
+            Friendly name for logging.
+
+        Returns
+        -------
+        ExecutionResult
+        """
+
+        if not sql.strip():
+
+            raise ValueError(
+
+                "SQL statement is empty."
+
+            )
+
+        logger.info(
+
+            "Executing SQL Operation: %s",
+
+            operation_name,
+
+        )
+
+        try:
+
+            with Timer() as timer:
+
+                with self.engine.begin() as connection:
+
+                    connection.execute(
+
+                        text(sql)
+
+                    )
+
+            logger.info(
+
+                "Completed: %s (%.2f sec)",
+
+                operation_name,
+
+                timer.elapsed_seconds,
+
+            )
+
+            return ExecutionResult(
+
+                script_name=operation_name,
+
+                success=True,
+
+                execution_time_seconds=timer.elapsed_seconds,
+
+            )
+
+        except Exception as error:
+
+            logger.exception(
+
+                "Execution Failed: %s",
+
+                operation_name,
+
+            )
+
+            return ExecutionResult(
+
+                script_name=operation_name,
 
                 success=False,
 

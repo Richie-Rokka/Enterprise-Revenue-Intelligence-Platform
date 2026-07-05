@@ -22,7 +22,7 @@ ERIP
 
 Version
 -------
-2.1.0
+2.2.0
 ===============================================================================
 """
 
@@ -77,6 +77,36 @@ class WarehouseDeploymentResult:
     validation_result: ValidationResult
 
 
+@dataclass(slots=True)
+class WarehouseLoadStep:
+    """
+    Individual warehouse load step.
+    """
+
+    procedure: str
+
+    success: bool
+
+    execution_time_seconds: float
+
+    error: str | None = None
+
+
+@dataclass(slots=True)
+class WarehouseLoadResult:
+    """
+    Warehouse load summary.
+    """
+
+    success: bool
+
+    procedures_executed: int
+
+    execution_time_seconds: float
+
+    steps: list[WarehouseLoadStep]
+
+
 # =============================================================================
 # Warehouse Manager
 # =============================================================================
@@ -88,6 +118,35 @@ class WarehouseManager:
     Public entry point for all warehouse operations.
     """
 
+    LOAD_SEQUENCE = (
+    
+        (
+            "Date Dimension",
+            "CALL analytics.load_dim_date({start_year}, {end_year});",
+        ),
+    
+        (
+            "Product Dimension",
+            "CALL analytics.load_dim_product();",
+        ),
+    
+        (
+            "Seller Dimension",
+            "CALL analytics.load_dim_seller();",
+        ),
+    
+        (
+            "Customer Dimension",
+            "CALL analytics.load_dim_customer();",
+        ),
+    
+        (
+            "Fact Sales",
+            "CALL analytics.load_fact_sales();",
+        ),
+    
+    )
+
     def __init__(self) -> None:
 
         self.registry = DDLRegistry()
@@ -95,7 +154,7 @@ class WarehouseManager:
         self.executor = DatabaseExecutor()
 
         self.validator = WarehouseValidator()
-
+       
     # -------------------------------------------------------------------------
     # Internal Helpers
     # -------------------------------------------------------------------------
@@ -185,6 +244,107 @@ class WarehouseManager:
         )
 
     # -------------------------------------------------------------------------
+    # Warehouse Load
+    # -------------------------------------------------------------------------
+
+    def load(
+        self,
+        start_year: int = 2016,
+        end_year: int = 2018,
+    ) -> WarehouseLoadResult:
+        """
+        Load all warehouse dimensions and fact tables.
+        """
+
+        import time
+
+        logger.info("=" * 60)
+        logger.info("WAREHOUSE DATA LOAD STARTED")
+        logger.info("=" * 60)
+
+        started = time.perf_counter()
+
+        steps: list[WarehouseLoadStep] = []
+
+        for name, sql_template in self.LOAD_SEQUENCE:
+
+            sql = sql_template.format(
+
+                start_year=start_year,
+
+                end_year=end_year,
+
+            )
+
+            logger.info("Loading %s...", name)
+
+            result = self.executor.execute_sql(
+
+                sql,
+
+                operation_name=name,
+
+            )
+
+            steps.append(
+
+                WarehouseLoadStep(
+
+                    procedure=name,
+
+                    success=result.success,
+
+                    execution_time_seconds=result.execution_time_seconds,
+
+                    error=result.error,
+
+                )
+
+            )
+
+            if not result.success:
+
+                logger.error(
+
+                    "Warehouse Load Failed: %s",
+
+                    name,
+
+                )
+
+                return WarehouseLoadResult(
+
+                    success=False,
+
+                    procedures_executed=len(steps),
+
+                    execution_time_seconds=(
+                        time.perf_counter() - started
+                    ),
+
+                    steps=steps,
+
+                )
+
+        logger.info("=" * 60)
+        logger.info("WAREHOUSE DATA LOAD COMPLETED")
+        logger.info("=" * 60)
+
+        return WarehouseLoadResult(
+
+            success=True,
+
+            procedures_executed=len(steps),
+
+            execution_time_seconds=(
+                time.perf_counter() - started
+            ),
+
+            steps=steps,
+
+        )
+
+    # -------------------------------------------------------------------------
     # Warehouse Operations
     # -------------------------------------------------------------------------
 
@@ -257,4 +417,4 @@ class WarehouseManager:
         Return framework version.
         """
 
-        return "2.1.0"
+        return "2.2.0"

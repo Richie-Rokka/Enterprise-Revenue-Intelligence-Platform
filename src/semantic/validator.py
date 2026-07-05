@@ -5,19 +5,21 @@ Enterprise Revenue Intelligence Platform (ERIP)
 
 Module      : validator.py
 Package     : src.semantic
-Purpose     : Semantic Layer Validator
+Purpose     : Enterprise Semantic Layer Validator
 Author      : ERIP
-Version     : 2.0.0
+Version     : 2.1.0
 
 Description
 -----------
-Validates the deployed Semantic Layer after SQL execution.
+Enterprise validator for the Semantic Layer.
 
 Responsibilities
 ----------------
-- Validate semantic deployment
-- Report validation failures
-- Provide deployment readiness
+- Validate analytics schema
+- Validate warehouse dependencies
+- Validate semantic views
+- Validate semantic data availability
+- Report validation summary
 
 ===============================================================================
 """
@@ -48,11 +50,13 @@ class ValidationResult:
 
     passed: bool
 
+    checks_performed: int
+
     failures: list[str] = field(default_factory=list)
 
 
 # =============================================================================
-# Validator
+# Semantic Validator
 # =============================================================================
 
 
@@ -60,6 +64,34 @@ class SemanticValidator:
     """
     Enterprise Semantic Validator.
     """
+
+    REQUIRED_TABLES = (
+
+        "dim_customer",
+
+        "dim_date",
+
+        "dim_product",
+
+        "dim_seller",
+
+        "fact_sales",
+
+    )
+
+    REQUIRED_VIEWS = (
+
+        "vw_sales",
+
+        "vw_customer_sales",
+
+        "vw_product_performance",
+
+        "vw_seller_performance",
+
+        "vw_revenue_dashboard",
+
+    )
 
     def __init__(self) -> None:
 
@@ -72,13 +104,21 @@ class SemanticValidator:
         Validate semantic layer deployment.
         """
 
+        logger.info("=" * 60)
+        logger.info("Starting Semantic Layer Validation")
+        logger.info("=" * 60)
+
         failures: list[str] = []
 
         checks = [
 
             self._validate_schema,
 
-            self._validate_views,
+            self._validate_required_tables,
+
+            self._validate_views_exist,
+
+            self._validate_views_return_data,
 
         ]
 
@@ -92,23 +132,26 @@ class SemanticValidator:
 
                 failures.append(str(error))
 
-        if failures:
+                logger.error(str(error))
 
-            logger.error(
-                "Semantic validation failed."
-            )
+        passed = len(failures) == 0
+
+        if passed:
+
+            logger.info("Semantic validation successful.")
 
         else:
 
-            logger.info(
-                "Semantic validation passed."
-            )
+            logger.error("Semantic validation failed.")
 
         return ValidationResult(
 
-            passed=len(failures) == 0,
+            passed=passed,
+
+            checks_performed=len(checks),
 
             failures=failures,
+
         )
 
     # -------------------------------------------------------------------------
@@ -119,14 +162,11 @@ class SemanticValidator:
         """
 
         sql = """
-        SELECT EXISTS (
-
+        SELECT EXISTS
+        (
             SELECT 1
-
             FROM information_schema.schemata
-
             WHERE schema_name='analytics'
-
         );
         """
 
@@ -142,37 +182,152 @@ class SemanticValidator:
 
             raise RuntimeError(
 
-                "Schema 'analytics' does not exist."
+                "Analytics schema does not exist."
 
             )
 
     # -------------------------------------------------------------------------
 
-    def _validate_views(self) -> None:
+    def _validate_required_tables(self) -> None:
         """
-        Validate at least one analytics view exists.
+        Validate warehouse tables exist.
         """
 
         sql = """
-        SELECT COUNT(*)
-
-        FROM information_schema.views
-
+        SELECT table_name
+        FROM information_schema.tables
         WHERE table_schema='analytics';
         """
 
         with self.engine.begin() as connection:
 
-            count = connection.execute(
+            tables = {
 
-                text(sql)
+                row[0]
 
-            ).scalar()
+                for row in connection.execute(
 
-        if count == 0:
+                    text(sql)
+
+                )
+
+            }
+
+        missing = [
+
+            table
+
+            for table in self.REQUIRED_TABLES
+
+            if table not in tables
+
+        ]
+
+        if missing:
 
             raise RuntimeError(
 
-                "No analytics views found."
+                "Missing warehouse tables: "
+
+                + ", ".join(missing)
 
             )
+
+    # -------------------------------------------------------------------------
+
+    def _validate_views_exist(self) -> None:
+        """
+        Validate required semantic views exist.
+        """
+
+        sql = """
+        SELECT table_name
+        FROM information_schema.views
+        WHERE table_schema='analytics';
+        """
+
+        with self.engine.begin() as connection:
+
+            views = {
+
+                row[0]
+
+                for row in connection.execute(
+
+                    text(sql)
+
+                )
+
+            }
+
+        missing = [
+
+            view
+
+            for view in self.REQUIRED_VIEWS
+
+            if view not in views
+
+        ]
+
+        if missing:
+
+            raise RuntimeError(
+
+                "Missing semantic views: "
+
+                + ", ".join(missing)
+
+            )
+
+    # -------------------------------------------------------------------------
+
+    def _validate_views_return_data(self) -> None:
+        """
+        Validate each semantic view returns rows.
+        """
+
+        with self.engine.begin() as connection:
+
+            for view in self.REQUIRED_VIEWS:
+
+                sql = text(
+
+                    f"""
+
+                    SELECT COUNT(*)
+
+                    FROM analytics.{view}
+
+                    """
+
+                )
+
+                count = connection.execute(sql).scalar()
+
+                if count == 0:
+
+                    raise RuntimeError(
+
+                        f"{view} returned zero rows."
+
+                    )
+
+    # -------------------------------------------------------------------------
+
+    def summary(self) -> dict:
+        """
+        Validator summary.
+        """
+
+        result = self.validate()
+
+        return {
+
+            "passed": result.passed,
+
+            "checks_performed": result.checks_performed,
+
+            "failures": result.failures,
+
+        }
