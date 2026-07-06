@@ -30,7 +30,8 @@ from dataclasses import dataclass, field
 
 from sqlalchemy import text
 
-from src.database.connection import get_engine
+from sqlalchemy.engine import Engine
+
 from src.observability import get_logger
 
 
@@ -93,9 +94,22 @@ class SemanticValidator:
 
     )
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        engine: Engine,
+    ) -> None:
+        """
+        Construct a SemanticValidator.
 
-        self.engine = get_engine()
+        Parameters
+        ----------
+        engine
+            Shared SQLAlchemy engine supplied by the
+            ServiceContainer.
+        """
+
+        self.engine = engine
 
     # -------------------------------------------------------------------------
 

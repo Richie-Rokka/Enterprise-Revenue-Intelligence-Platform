@@ -41,6 +41,7 @@ from src.warehouse.manager import WarehouseManager
 from .models import (
     DeploymentStatistics,
     MonitoringDashboard,
+    MonitoringValidationResult,
     PlatformHealth,
     RuntimeStatistics,
     SemanticStatistics,
@@ -74,18 +75,59 @@ class MonitoringManager:
 
     # -------------------------------------------------------------------------
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        registry: MonitoringRegistry,
+        validator: MonitoringValidator,
+        executor: DatabaseExecutor,
+        warehouse: WarehouseManager,
+        semantic: SemanticManager,
+    ) -> None:
+        """
+        Construct the Enterprise Monitoring Manager.
 
-        self.registry = MonitoringRegistry()
+        Parameters
+        ----------
+        registry
+            Shared Monitoring Registry.
 
-        self.executor = DatabaseExecutor()
+        validator
+            Shared Monitoring Validator.
 
-        self.validator = MonitoringValidator()
+        executor
+            Shared Database Executor.
 
-        self.warehouse = WarehouseManager()
+        warehouse
+            Shared Warehouse Manager.
 
-        self.semantic = SemanticManager()
+        semantic
+            Shared Semantic Manager.
+        """
 
+        # ---------------------------------------------------------------------
+        # Shared Dependencies
+        # ---------------------------------------------------------------------
+
+        self.registry = registry
+
+        self.validator = validator
+
+        self.executor = executor
+
+        self.warehouse = warehouse
+
+        self.semantic = semantic
+
+        # ---------------------------------------------------------------------
+        # Runtime State
+        # ---------------------------------------------------------------------
+
+        self._validation_result: MonitoringValidationResult | None = None
+
+        self._validation_dirty: bool = True
+
+        
     # -------------------------------------------------------------------------
     # Health
     # -------------------------------------------------------------------------
@@ -220,12 +262,18 @@ class MonitoringManager:
     # Validation
     # -------------------------------------------------------------------------
 
-    def validate(self):
+    def validate(self) -> MonitoringValidationResult:
         """
         Validate monitoring framework.
         """
 
-        return self.validator.validate()
+        if self._validation_dirty:
+
+            self._validation_result = self.validator.validate()
+
+            self._validation_dirty = False
+
+        return self._validation_result
 
     # -------------------------------------------------------------------------
     # Status
@@ -236,7 +284,7 @@ class MonitoringManager:
         Return monitoring status.
         """
 
-        validation = self.validator.validate()
+        validation = self.validate()
 
         return "READY" if validation.passed else "INVALID"
 

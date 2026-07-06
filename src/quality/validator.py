@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from sqlalchemy import text
 
-from src.database.connection import get_engine
+from sqlalchemy.engine import Engine
 from src.monitoring.manager import MonitoringManager
 from src.observability import get_logger
 from src.semantic.manager import SemanticManager
@@ -57,17 +57,45 @@ class QualityValidator:
 
     # -------------------------------------------------------------------------
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        registry: QualityRegistry,
+        engine: Engine,
+        warehouse: WarehouseManager,
+        semantic: SemanticManager,
+        monitoring: MonitoringManager,
+    ) -> None:
+        """
+        Construct the Enterprise Data Quality Validator.
 
-        self.registry = QualityRegistry()
+        Parameters
+        ----------
+        registry
+            Shared Quality Registry.
 
-        self.engine = get_engine()
+        engine
+            Shared SQLAlchemy engine.
 
-        self.warehouse = WarehouseManager()
+        warehouse
+            Shared Warehouse Manager.
 
-        self.semantic = SemanticManager()
+        semantic
+            Shared Semantic Manager.
 
-        self.monitoring = MonitoringManager()
+        monitoring
+            Shared Monitoring Manager.
+        """
+
+        self.registry = registry
+
+        self.engine = engine
+
+        self.warehouse = warehouse
+
+        self.semantic = semantic
+
+        self.monitoring = monitoring
 
     # -------------------------------------------------------------------------
 

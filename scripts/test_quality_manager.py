@@ -13,12 +13,14 @@ Version     : 2.0.0
 
 from pprint import pprint
 
-from src.quality.manager import QualityManager
+from src.core.services import ServiceContainer
 
 
 def main() -> None:
 
-    manager = QualityManager()
+    services = ServiceContainer()
+
+    manager = services.quality_manager
 
     print("=" * 70)
     print("Enterprise Data Quality Framework")

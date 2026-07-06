@@ -13,12 +13,14 @@ Version     : 2.0.0
 
 from pprint import pprint
 
-from src.monitoring.manager import MonitoringManager
+from src.core.services import ServiceContainer
+
+services = ServiceContainer()
 
 
 def main() -> None:
 
-    manager = MonitoringManager()
+    manager = services.monitoring_manager
 
     print("=" * 70)
     print("Enterprise Monitoring Framework")

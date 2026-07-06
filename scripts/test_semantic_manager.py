@@ -20,12 +20,14 @@ Version
 
 from __future__ import annotations
 
-from src.semantic.manager import SemanticManager
+from src.core.services import ServiceContainer
+
+services = ServiceContainer()
 
 
 def main() -> None:
 
-    semantic = SemanticManager()
+    semantic = services.semantic_manager
 
     print("=" * 60)
     print("Semantic Layer Status")

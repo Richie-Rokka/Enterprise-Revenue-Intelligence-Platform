@@ -1,10 +1,12 @@
 """
+===============================================================================
 Enterprise Revenue Intelligence Platform (ERIP)
 
 Warehouse Validator
 
 Validates the warehouse after deployment to ensure
 required schemas and tables exist before ETL execution.
+===============================================================================
 """
 
 from __future__ import annotations
@@ -12,10 +14,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
-from src.database import get_engine
-from src.observability import get_logger
 from src.config.config import config
+from src.observability import get_logger
 
 
 logger = get_logger(__name__)
@@ -28,9 +30,7 @@ class ValidationResult:
     """
 
     passed: bool
-
     checks_performed: int
-
     failures: list[str]
 
 
@@ -39,28 +39,34 @@ class WarehouseValidator:
     Enterprise Warehouse Validator.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        engine: Engine,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        engine
+            Shared SQLAlchemy engine supplied by the
+            ServiceContainer.
+        """
 
-        self.engine = get_engine()
+        self.engine = engine
+
+    # -------------------------------------------------------------------------
 
     def _schema_exists(
         self,
         schema: str,
     ) -> bool:
-        """
-        Check whether a schema exists.
-        """
 
         query = text(
             """
             SELECT EXISTS (
-
                 SELECT 1
-
                 FROM information_schema.schemata
-
                 WHERE schema_name = :schema
-
             )
             """
         )
@@ -68,38 +74,27 @@ class WarehouseValidator:
         with self.engine.connect() as connection:
 
             return bool(
-
                 connection.execute(
-
                     query,
-
                     {"schema": schema},
-
                 ).scalar()
-
             )
+
+    # -------------------------------------------------------------------------
 
     def _table_exists(
         self,
         schema: str,
         table: str,
     ) -> bool:
-        """
-        Check whether a table exists.
-        """
 
         query = text(
             """
             SELECT EXISTS (
-
                 SELECT 1
-
                 FROM information_schema.tables
-
                 WHERE table_schema = :schema
-
-                AND table_name = :table
-
+                  AND table_name = :table
             )
             """
         )
@@ -107,33 +102,22 @@ class WarehouseValidator:
         with self.engine.connect() as connection:
 
             return bool(
-
                 connection.execute(
-
                     query,
-
                     {
-
                         "schema": schema,
-
                         "table": table,
-
                     },
-
                 ).scalar()
-
             )
 
+    # -------------------------------------------------------------------------
+
     def validate(self) -> ValidationResult:
-        """
-        Validate warehouse deployment.
-        """
 
-        logger.info(
-            "Starting warehouse validation..."
-        )
+        logger.info("Starting warehouse validation...")
 
-        failures = []
+        failures: list[str] = []
 
         checks = 0
 
@@ -153,11 +137,7 @@ class WarehouseValidator:
 
             if not self._schema_exists(schema):
 
-                failures.append(
-
-                    f"Missing schema: {schema}"
-
-                )
+                failures.append(f"Missing schema: {schema}")
 
         required_tables = [
 
@@ -177,32 +157,23 @@ class WarehouseValidator:
 
             checks += 1
 
-            if not self._table_exists(
-                schema,
-                table,
-            ):
+            if not self._table_exists(schema, table):
 
                 failures.append(
-
                     f"Missing table: {schema}.{table}"
-
                 )
 
         if failures:
 
-            logger.error(
-                "Warehouse validation failed."
-            )
+            logger.error("Warehouse validation failed.")
 
         else:
 
-            logger.info(
-                "Warehouse validation successful."
-            )
+            logger.info("Warehouse validation successful.")
 
         return ValidationResult(
 
-            passed=len(failures) == 0,
+            passed=not failures,
 
             checks_performed=checks,
 

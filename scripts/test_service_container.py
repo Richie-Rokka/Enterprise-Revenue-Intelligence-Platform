@@ -95,6 +95,35 @@ def main() -> None:
     print("Semantic Validator")
     print(services.semantic_validator)
 
+
+    print()
+    print("=" * 70)
+    print("Monitoring Framework")
+    print("=" * 70)
+    print()
+
+    print("Monitoring Manager")
+    print(services.monitoring_manager)
+
+    print()
+
+    print("Monitoring Validator")
+    print(services.monitoring_validator)
+
+    print()
+    print("=" * 70)
+    print("Quality Framework")
+    print("=" * 70)
+    print()
+
+    print("Quality Manager")
+    print(services.quality_manager)
+
+    print()
+
+    print("Quality Validator")
+    print(services.quality_validator)
+
     # ------------------------------------------------------------------
     # Diagnostics
     # ------------------------------------------------------------------

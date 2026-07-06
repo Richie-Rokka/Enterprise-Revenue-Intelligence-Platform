@@ -78,23 +78,43 @@ class SemanticManager:
     Public entry point for all Semantic Layer operations.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        registry: SemanticRegistry,
+        validator: SemanticValidator,
+        executor: DatabaseExecutor,
+    ) -> None:
+        """
+        Construct the Semantic Manager.
 
-        self.registry = SemanticRegistry()
+        Parameters
+        ----------
+        registry
+            Shared Semantic Registry.
 
-        self.executor = DatabaseExecutor()
+        validator
+            Shared Semantic Validator.
 
-        self.validator = SemanticValidator()
+        executor
+            Shared SQL execution service.
+        """
 
-        # -----------------------------------------------------------------
-        # Cached deployment state.
-        #
-        # The manager intentionally performs no database work during
-        # construction. Validation is performed lazily when required.
-        # -----------------------------------------------------------------
+        self.registry = registry
 
-        self._is_deployed = False
+        self.validator = validator
 
+        self.executor = executor
+
+        # ---------------------------------------------------------------------
+        # Runtime State
+        # ---------------------------------------------------------------------
+
+        self._validation_result: ValidationResult | None = None
+
+        self._validation_dirty: bool = True
+
+    
     # -------------------------------------------------------------------------
     # Internal Deployment
     # -------------------------------------------------------------------------
@@ -128,13 +148,15 @@ class SemanticManager:
         # Validate Deployment
         # -----------------------------------------------------------------
 
-        validation = self.validator.validate()
+        # Deployment changed the semantic layer.
+
+        self._validation_dirty = True
+
+        validation = self.validate()
 
         success = validation.passed
 
         # Cache deployment state
-
-        self._is_deployed = success
 
         if success:
 
@@ -174,7 +196,8 @@ class SemanticManager:
         """
         Deploy the Semantic Layer.
         """
-
+        self._validation_dirty = True
+        
         return self._deploy()
 
     # -------------------------------------------------------------------------
@@ -183,6 +206,13 @@ class SemanticManager:
         """
         Backward-compatible alias for deploy().
         """
+
+        # ---------------------------------------------------------------------
+        # Invalidate cached validation.
+        # ---------------------------------------------------------------------
+        
+        self._validation_dirty = True
+        
 
         logger.warning(
 
@@ -202,6 +232,8 @@ class SemanticManager:
         Current implementation performs a complete deployment.
         """
 
+        self._validation_dirty = True
+
         logger.info("Refreshing Semantic Layer...")
 
         return self.deploy()
@@ -209,37 +241,25 @@ class SemanticManager:
     # -------------------------------------------------------------------------
 
     def validate(self) -> ValidationResult:
-        """
-        Validate the Semantic Layer.
 
-        Validation always executes against the database.
-        """
+        if self._validation_dirty:
 
-        return self.validator.validate()
+            self._validation_result = self.validator.validate()
+
+            self._validation_dirty = False
+
+        return self._validation_result
 
     # -------------------------------------------------------------------------
 
     def status(self) -> str:
         """
         Return Semantic Layer status.
-
-        Performs a one-time validation if the deployment state
-        has not yet been established.
         """
 
-        if not self._is_deployed:
+        validation = self.validate()
 
-            try:
-
-                validation = self.validator.validate()
-
-                self._is_deployed = validation.passed
-
-            except Exception:
-
-                self._is_deployed = False
-
-        return "READY" if self._is_deployed else "NOT DEPLOYED"
+        return "READY" if validation.passed else "INVALID"
 
     # -------------------------------------------------------------------------
 

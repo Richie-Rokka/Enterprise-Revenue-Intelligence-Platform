@@ -2,12 +2,15 @@
 Test Warehouse Manager Operations
 """
 
-from src.warehouse.manager import WarehouseManager
+from src.core.services import ServiceContainer
+
+services = ServiceContainer()
+
 
 
 def main():
 
-    warehouse = WarehouseManager()
+    warehouse = services.warehouse_manager
 
     print("=" * 60)
     print("Warehouse Status")

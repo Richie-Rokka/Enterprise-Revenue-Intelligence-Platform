@@ -30,6 +30,7 @@ from src.monitoring.manager import MonitoringManager
 from src.observability import get_logger
 from src.semantic.manager import SemanticManager
 from src.warehouse.manager import WarehouseManager
+from .registry import QualityRegistry
 
 from .models import (
     BusinessRuleSummary,
@@ -60,15 +61,53 @@ class QualityManager:
 
     # -------------------------------------------------------------------------
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        registry: QualityRegistry,
+        validator: QualityValidator,
+        warehouse: WarehouseManager,
+        semantic: SemanticManager,
+        monitoring: MonitoringManager,
+    ) -> None:
+        """
+        Construct the Enterprise Data Quality Manager.
 
-        self.validator = QualityValidator()
+        Parameters
+        ----------
+        registry
+            Shared Quality Registry.
 
-        self.warehouse = WarehouseManager()
+        validator
+            Shared Data Quality Validator.
 
-        self.semantic = SemanticManager()
+        warehouse
+            Shared Warehouse Manager.
 
-        self.monitoring = MonitoringManager()
+        semantic
+            Shared Semantic Manager.
+
+        monitoring
+            Shared Monitoring Manager.
+        """
+
+        self.registry = registry
+
+        self.validator = validator
+
+        self.warehouse = warehouse
+
+        self.semantic = semantic
+
+        self.monitoring = monitoring
+
+        # ---------------------------------------------------------------------
+        # Runtime State
+        # ---------------------------------------------------------------------
+
+        self._validation_result: DataQualityValidationResult | None = None
+
+        self._validation_dirty: bool = True
 
     # -------------------------------------------------------------------------
     # Validation
@@ -79,7 +118,13 @@ class QualityManager:
         Validate the Data Quality Framework.
         """
 
-        return self.validator.validate()
+        if self._validation_dirty:
+
+            self._validation_result = self.validator.validate()
+
+            self._validation_dirty = False
+
+        return self._validation_result
 
     # -------------------------------------------------------------------------
     # Summary

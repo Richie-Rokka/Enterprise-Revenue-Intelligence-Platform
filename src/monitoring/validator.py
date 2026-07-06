@@ -29,10 +29,11 @@ from __future__ import annotations
 
 from sqlalchemy import text
 
-from src.database.connection import get_engine
+from sqlalchemy.engine import Engine
 from src.observability import get_logger
 
 from src.semantic.manager import SemanticManager
+
 from src.warehouse.manager import WarehouseManager
 
 from .models import MonitoringValidationResult
@@ -56,15 +57,39 @@ class MonitoringValidator:
 
     # -------------------------------------------------------------------------
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        registry: MonitoringRegistry,
+        engine: Engine,
+        warehouse: WarehouseManager,
+        semantic: SemanticManager,
+    ) -> None:
+        """
+        Construct a MonitoringValidator.
 
-        self.registry = MonitoringRegistry()
+        Parameters
+        ----------
+        registry
+            Shared Monitoring Registry.
 
-        self.engine = get_engine()
+        engine
+            Shared SQLAlchemy engine.
 
-        self.warehouse = WarehouseManager()
+        warehouse
+            Shared Warehouse Manager.
 
-        self.semantic = SemanticManager()
+        semantic
+            Shared Semantic Manager.
+        """
+
+        self.registry = registry
+
+        self.engine = engine
+
+        self.warehouse = warehouse
+
+        self.semantic = semantic
 
     # -------------------------------------------------------------------------
 

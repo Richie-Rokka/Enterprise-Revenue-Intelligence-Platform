@@ -44,6 +44,8 @@ from .validator import (
     ValidationResult,
 )
 
+from time import perf_counter
+
 logger = get_logger(__name__)
 
 
@@ -147,13 +149,45 @@ class WarehouseManager:
     
     )
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        registry: DDLRegistry,
+        validator: WarehouseValidator,
+        executor: DatabaseExecutor,
+    ) -> None:
+        """
+        Construct the Enterprise Warehouse Manager.
 
-        self.registry = DDLRegistry()
+        Parameters
+        ----------
+        registry
+            Shared DDL registry.
 
-        self.executor = DatabaseExecutor()
+        validator
+            Shared Warehouse Validator.
 
-        self.validator = WarehouseValidator()
+        executor
+            Shared SQL execution service.
+        """
+
+        # ---------------------------------------------------------------------
+        # Shared Dependencies
+        # ---------------------------------------------------------------------
+
+        self.registry = registry
+
+        self.validator = validator
+
+        self.executor = executor
+
+        # ---------------------------------------------------------------------
+        # Runtime State
+        # ---------------------------------------------------------------------
+
+        self._validation_result: ValidationResult | None = None
+
+        self._validation_dirty: bool = True
        
     # -------------------------------------------------------------------------
     # Internal Helpers
@@ -197,6 +231,12 @@ class WarehouseManager:
         Build or rebuild the warehouse.
         """
 
+        # ---------------------------------------------------------------------
+        # Invalidate cached validation.
+        # ---------------------------------------------------------------------
+
+        self._validation_dirty = True
+
         logger.info("=" * 60)
         logger.info("WAREHOUSE DEPLOYMENT STARTED")
         logger.info("=" * 60)
@@ -205,11 +245,11 @@ class WarehouseManager:
 
         execution_results = self.executor.execute_many(
 
-            [script.path for script in self.registry]
+        [script.path for script in self.registry]
 
         )
 
-        validation = self.validator.validate()
+        validation = self.validate()
 
         success = validation.passed
 
@@ -225,9 +265,9 @@ class WarehouseManager:
             logger.error("WAREHOUSE DEPLOYMENT FAILED")
             logger.error("=" * 60)
 
-            for failure in validation.failures:
+        for failure in validation.failures:
 
-                logger.error(failure)
+            logger.error(failure)
 
         return WarehouseDeploymentResult(
 
@@ -242,7 +282,6 @@ class WarehouseManager:
             validation_result=validation,
 
         )
-
     # -------------------------------------------------------------------------
     # Warehouse Load
     # -------------------------------------------------------------------------
@@ -256,13 +295,13 @@ class WarehouseManager:
         Load all warehouse dimensions and fact tables.
         """
 
-        import time
+        self._validation_dirty = True
 
         logger.info("=" * 60)
         logger.info("WAREHOUSE DATA LOAD STARTED")
         logger.info("=" * 60)
 
-        started = time.perf_counter()
+        started = perf_counter()
 
         steps: list[WarehouseLoadStep] = []
 
@@ -319,7 +358,7 @@ class WarehouseManager:
                     procedures_executed=len(steps),
 
                     execution_time_seconds=(
-                        time.perf_counter() - started
+                        perf_counter() - started
                     ),
 
                     steps=steps,
@@ -337,7 +376,7 @@ class WarehouseManager:
             procedures_executed=len(steps),
 
             execution_time_seconds=(
-                time.perf_counter() - started
+                perf_counter() - started
             ),
 
             steps=steps,
@@ -353,6 +392,8 @@ class WarehouseManager:
         Execute refresh_warehouse.sql.
         """
 
+        self._validation_dirty = True
+
         return self._run_operation(
             "refresh_warehouse.sql"
         )
@@ -362,8 +403,10 @@ class WarehouseManager:
         Refresh warehouse metadata.
         """
 
+        self._validation_dirty = True
+
         return self._run_operation(
-            "refresh_metadata.sql"
+        "refresh_metadata.sql"
         )
 
     def health(self) -> ExecutionResult:
@@ -389,12 +432,14 @@ class WarehouseManager:
     # -------------------------------------------------------------------------
 
     def validate(self) -> ValidationResult:
-        """
-        Validate warehouse.
-        """
 
-        return self.validator.validate()
+        if self._validation_dirty:
 
+            self._validation_result = self.validator.validate()
+
+            self._validation_dirty = False
+
+        return self._validation_result
     # -------------------------------------------------------------------------
     # Status
     # -------------------------------------------------------------------------
@@ -404,7 +449,7 @@ class WarehouseManager:
         Return warehouse status.
         """
 
-        validation = self.validator.validate()
+        validation = self.validate()
 
         return "READY" if validation.passed else "INVALID"
 
