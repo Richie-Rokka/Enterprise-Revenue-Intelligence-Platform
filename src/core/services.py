@@ -68,6 +68,9 @@ from src.semantic.registry import SemanticRegistry
 from src.monitoring.registry import MonitoringRegistry
 from src.quality.registry import QualityRegistry
 
+from src.runtime.lifecycle import RuntimeLifecycle
+from src.runtime.manager import RuntimeManager
+
 
 # =============================================================================
 # Service Container
@@ -98,6 +101,14 @@ class ServiceContainer:
         self._logger = None
 
         self._database_executor = None
+
+        #
+        # Runtime Framework
+        #
+        
+        self._runtime_lifecycle = None
+        
+        self._runtime_manager = None
 
         #
         # Warehouse Framework
@@ -156,6 +167,7 @@ class ServiceContainer:
 
         self._secrets = None
 
+        
     # =========================================================================
     # Configuration
     # =========================================================================
@@ -216,6 +228,40 @@ class ServiceContainer:
 
         return self._database_executor
 
+
+    # =========================================================================
+    # Runtime Framework
+    # =========================================================================
+
+    @property
+    def runtime_lifecycle(self) -> RuntimeLifecycle:
+        """
+        Shared Runtime Lifecycle.
+        """
+
+        if self._runtime_lifecycle is None:
+
+            self._runtime_lifecycle = RuntimeLifecycle()
+
+        return self._runtime_lifecycle
+
+
+    @property
+    def runtime_manager(self) -> RuntimeManager:
+        """
+        Shared Runtime Manager.
+        """
+
+        if self._runtime_manager is None:
+
+            self._runtime_manager = RuntimeManager(
+
+                lifecycle=self.runtime_lifecycle,
+
+            )
+
+        return self._runtime_manager
+
     # =========================================================================
     # Warehouse
     # =========================================================================
@@ -230,13 +276,15 @@ class ServiceContainer:
 
             self._warehouse_manager = WarehouseManager(
 
-                registry=self.warehouse_registry,
+            registry=self.warehouse_registry,
 
-                validator=self.warehouse_validator,
+            validator=self.warehouse_validator,
 
-                executor=self.database_executor,
+            executor=self.database_executor,
 
-            )
+            runtime=self.runtime_manager,
+
+        )
 
         return self._warehouse_manager
 
@@ -270,29 +318,9 @@ class ServiceContainer:
         return self._warehouse_validator
 
     # =========================================================================
-    # Semantic
+    # Semantic Framework
     # =========================================================================
 
-    @property
-    def semantic_manager(self) -> SemanticManager:
-        """
-        Shared Semantic Manager.
-        """
-
-        if self._semantic_manager is None:
-
-            self._semantic_manager = SemanticManager(
-
-                registry=self.semantic_registry,
-
-                validator=self.semantic_validator,
-
-                executor=self.database_executor,
-
-            )
-
-        return self._semantic_manager
-    
     @property
     def semantic_registry(self) -> SemanticRegistry:
         """
@@ -304,6 +332,8 @@ class ServiceContainer:
             self._semantic_registry = SemanticRegistry()
 
         return self._semantic_registry
+
+    # -------------------------------------------------------------------------
 
     @property
     def semantic_validator(self) -> SemanticValidator:
@@ -321,13 +351,39 @@ class ServiceContainer:
 
         return self._semantic_validator
 
+    # -------------------------------------------------------------------------
+
+    @property
+    def semantic_manager(self) -> SemanticManager:
+        """
+        Shared Semantic Manager.
+        """
+
+        if self._semantic_manager is None:
+
+            self._semantic_manager = SemanticManager(
+
+                registry=self.semantic_registry,
+
+                validator=self.semantic_validator,
+
+                executor=self.database_executor,
+
+                runtime=self.runtime_manager,
+
+            )
+
+        return self._semantic_manager
+
 
     # =========================================================================
-    # Monitoring
+    # Monitoring Framework
     # =========================================================================
 
     @property
-    def monitoring_registry(self) -> MonitoringRegistry:
+    def monitoring_registry(
+        self,
+    ) -> MonitoringRegistry:
         """
         Shared Monitoring Registry.
         """
@@ -339,8 +395,13 @@ class ServiceContainer:
         return self._monitoring_registry
 
 
+    # -------------------------------------------------------------------------
+
+
     @property
-    def monitoring_validator(self) -> MonitoringValidator:
+    def monitoring_validator(
+    self,
+    ) -> MonitoringValidator:
         """
         Shared Monitoring Validator.
         """
@@ -351,19 +412,24 @@ class ServiceContainer:
 
                 registry=self.monitoring_registry,
 
-                engine=self.engine,
-
                 warehouse=self.warehouse_manager,
 
                 semantic=self.semantic_manager,
+
+                engine=self.engine,
 
             )
 
         return self._monitoring_validator
 
 
+    # -------------------------------------------------------------------------
+
+
     @property
-    def monitoring_manager(self) -> MonitoringManager:
+    def monitoring_manager(
+        self,
+    ) -> MonitoringManager:
         """
         Shared Monitoring Manager.
         """
@@ -381,6 +447,8 @@ class ServiceContainer:
                 warehouse=self.warehouse_manager,
 
                 semantic=self.semantic_manager,
+
+                runtime=self.runtime_manager,
 
             )
 
@@ -535,6 +603,14 @@ class ServiceContainer:
             "logger": self._logger is not None,
 
             "database_executor": self._database_executor is not None,
+
+            #
+            # Runtime
+            #
+
+            "runtime_lifecycle": self._runtime_lifecycle is not None,
+
+            "runtime_manager": self._runtime_manager is not None,
 
             #
             # Warehouse

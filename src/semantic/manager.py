@@ -6,8 +6,10 @@ Enterprise Revenue Intelligence Platform (ERIP)
 Module      : manager.py
 Package     : src.semantic
 Purpose     : Enterprise Semantic Layer Manager
+
 Author      : ERIP
-Version     : 2.3.0
+
+Version     : 3.0.0
 
 Description
 -----------
@@ -21,19 +23,29 @@ Responsibilities
 - Report semantic layer status
 - Report framework version
 
+Architecture
+------------
+Implements the Enterprise Template Method architecture established by
+WarehouseManager while preserving Semantic Layer business logic.
+
 ===============================================================================
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-
-from src.observability import get_logger
+from typing import TypeVar
 
 from src.database.database_executor import (
     DatabaseExecutor,
     ExecutionResult,
 )
+
+from src.observability import get_logger
+
+from src.runtime.manager import RuntimeManager
+from src.runtime.models import FrameworkState
 
 from .registry import SemanticRegistry
 from .validator import (
@@ -42,6 +54,8 @@ from .validator import (
 )
 
 logger = get_logger(__name__)
+
+T = TypeVar("T")
 
 
 # =============================================================================
@@ -52,7 +66,7 @@ logger = get_logger(__name__)
 @dataclass(slots=True)
 class SemanticDeploymentResult:
     """
-    Overall semantic deployment result.
+    Overall Semantic Layer deployment result.
     """
 
     success: bool
@@ -75,8 +89,16 @@ class SemanticManager:
     """
     Enterprise Semantic Manager.
 
-    Public entry point for all Semantic Layer operations.
+    Public façade for all Semantic Layer services.
     """
+
+    VERSION = "3.0.0"
+
+    FRAMEWORK = "Semantic"
+
+    # -------------------------------------------------------------------------
+    # Construction
+    # -------------------------------------------------------------------------
 
     def __init__(
         self,
@@ -84,20 +106,10 @@ class SemanticManager:
         registry: SemanticRegistry,
         validator: SemanticValidator,
         executor: DatabaseExecutor,
+        runtime: RuntimeManager,
     ) -> None:
         """
-        Construct the Semantic Manager.
-
-        Parameters
-        ----------
-        registry
-            Shared Semantic Registry.
-
-        validator
-            Shared Semantic Validator.
-
-        executor
-            Shared SQL execution service.
+        Construct the Enterprise Semantic Manager.
         """
 
         self.registry = registry
@@ -106,17 +118,154 @@ class SemanticManager:
 
         self.executor = executor
 
+        self.runtime = runtime
+
         # ---------------------------------------------------------------------
-        # Runtime State
+        # Cached Validation
         # ---------------------------------------------------------------------
 
         self._validation_result: ValidationResult | None = None
 
-        self._validation_dirty: bool = True
+        self._validation_dirty = True
 
-    
     # -------------------------------------------------------------------------
-    # Internal Deployment
+    # Runtime Template
+    # -------------------------------------------------------------------------
+
+    def _execute_runtime_operation(
+        self,
+        *,
+        operation: str,
+        state: FrameworkState,
+        action: Callable[[], T],
+    ) -> T:
+        """
+        Execute a Semantic Layer operation under Runtime control.
+        """
+
+        self.runtime.begin(
+            framework=self.FRAMEWORK,
+            operation=operation,
+        )
+
+        self.runtime.state(state)
+
+        try:
+
+            result = action()
+
+            self.runtime.success()
+
+            return result
+
+        except Exception as exc:
+
+            self.runtime.failure(exc)
+
+            raise
+
+        # -------------------------------------------------------------------------
+    # Public API
+    # -------------------------------------------------------------------------
+
+    def deploy(self) -> SemanticDeploymentResult:
+        """
+        Deploy the Semantic Layer.
+        """
+
+        return self._execute_runtime_operation(
+
+            operation="Deploy",
+
+            state=FrameworkState.DEPLOYING,
+
+            action=self._deploy,
+
+        )
+
+    # -------------------------------------------------------------------------
+
+    def rebuild(self) -> SemanticDeploymentResult:
+        """
+        Build or rebuild the Semantic Layer.
+
+        Backward-compatible alias for deploy().
+        """
+
+        logger.warning(
+
+            "SemanticManager.rebuild() is deprecated. "
+            "Use deploy() instead."
+
+        )
+
+        return self.deploy()
+
+    # -------------------------------------------------------------------------
+
+    def refresh(self) -> SemanticDeploymentResult:
+        """
+        Refresh the Semantic Layer.
+
+        Current implementation performs a complete deployment.
+        """
+
+        return self._execute_runtime_operation(
+
+            operation="Refresh",
+
+            state=FrameworkState.REFRESHING,
+
+            action=self._refresh,
+
+        )
+
+    # -------------------------------------------------------------------------
+
+    def validate(self) -> ValidationResult:
+        """
+        Validate the Semantic Layer.
+
+        Returns
+        -------
+        ValidationResult
+            Cached validation result.
+        """
+
+        if self._validation_dirty:
+
+            self._validation_result = self.validator.validate()
+
+            self._validation_dirty = False
+
+        return self._validation_result
+
+    # -------------------------------------------------------------------------
+
+    def status(self) -> str:
+        """
+        Return Semantic Layer status.
+        """
+
+        validation = self.validate()
+
+        return "READY" if validation.passed else "INVALID"
+
+    # -------------------------------------------------------------------------
+
+    @classmethod
+    def version(cls) -> str:
+        """
+        Return framework version.
+        """
+
+        return cls.VERSION
+        # =========================================================================
+    # Private Business Logic
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # Deployment
     # -------------------------------------------------------------------------
 
     def _deploy(self) -> SemanticDeploymentResult:
@@ -124,19 +273,21 @@ class SemanticManager:
         Deploy the complete Semantic Layer.
         """
 
+        self._validation_dirty = True
+
         logger.info("=" * 60)
         logger.info("SEMANTIC LAYER DEPLOYMENT STARTED")
         logger.info("=" * 60)
 
-        # -----------------------------------------------------------------
+        # ---------------------------------------------------------------------
         # Validate Registry
-        # -----------------------------------------------------------------
+        # ---------------------------------------------------------------------
 
         self.registry.validate()
 
-        # -----------------------------------------------------------------
-        # Execute SQL Scripts
-        # -----------------------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Execute Semantic Scripts
+        # ---------------------------------------------------------------------
 
         execution_results = self.executor.execute_many(
 
@@ -144,19 +295,23 @@ class SemanticManager:
 
         )
 
-        # -----------------------------------------------------------------
-        # Validate Deployment
-        # -----------------------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Runtime Validation Phase
+        # ---------------------------------------------------------------------
 
-        # Deployment changed the semantic layer.
+        self.runtime.state(
 
-        self._validation_dirty = True
+            FrameworkState.VALIDATING
+
+        )
 
         validation = self.validate()
 
         success = validation.passed
 
-        # Cache deployment state
+        # ---------------------------------------------------------------------
+        # Deployment Summary
+        # ---------------------------------------------------------------------
 
         if success:
 
@@ -189,43 +344,10 @@ class SemanticManager:
         )
 
     # -------------------------------------------------------------------------
-    # Public API
+    # Refresh
     # -------------------------------------------------------------------------
 
-    def deploy(self) -> SemanticDeploymentResult:
-        """
-        Deploy the Semantic Layer.
-        """
-        self._validation_dirty = True
-        
-        return self._deploy()
-
-    # -------------------------------------------------------------------------
-
-    def rebuild(self) -> SemanticDeploymentResult:
-        """
-        Backward-compatible alias for deploy().
-        """
-
-        # ---------------------------------------------------------------------
-        # Invalidate cached validation.
-        # ---------------------------------------------------------------------
-        
-        self._validation_dirty = True
-        
-
-        logger.warning(
-
-            "SemanticManager.rebuild() is deprecated. "
-            "Use deploy() instead."
-
-        )
-
-        return self.deploy()
-
-    # -------------------------------------------------------------------------
-
-    def refresh(self) -> SemanticDeploymentResult:
+    def _refresh(self) -> SemanticDeploymentResult:
         """
         Refresh the Semantic Layer.
 
@@ -236,36 +358,4 @@ class SemanticManager:
 
         logger.info("Refreshing Semantic Layer...")
 
-        return self.deploy()
-
-    # -------------------------------------------------------------------------
-
-    def validate(self) -> ValidationResult:
-
-        if self._validation_dirty:
-
-            self._validation_result = self.validator.validate()
-
-            self._validation_dirty = False
-
-        return self._validation_result
-
-    # -------------------------------------------------------------------------
-
-    def status(self) -> str:
-        """
-        Return Semantic Layer status.
-        """
-
-        validation = self.validate()
-
-        return "READY" if validation.passed else "INVALID"
-
-    # -------------------------------------------------------------------------
-
-    def version(self) -> str:
-        """
-        Return framework version.
-        """
-
-        return "2.3.0"
+        return self._deploy()

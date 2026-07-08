@@ -9,6 +9,7 @@ Public interface for all warehouse operations.
 Responsibilities
 ----------------
 - Deploy warehouse
+- Load warehouse
 - Refresh warehouse
 - Refresh metadata
 - Validate warehouse
@@ -22,31 +23,35 @@ ERIP
 
 Version
 -------
-2.2.0
+3.0.0
 ===============================================================================
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-
-from src.observability import get_logger
+from time import perf_counter
+from typing import TypeVar
 
 from src.database.database_executor import (
     DatabaseExecutor,
     ExecutionResult,
 )
+from src.observability import get_logger
+from src.runtime.manager import RuntimeManager
+from src.runtime.models import FrameworkState
 
 from .registry import DDLRegistry
 from .validator import (
-    WarehouseValidator,
     ValidationResult,
+    WarehouseValidator,
 )
 
-from time import perf_counter
-
 logger = get_logger(__name__)
+
+T = TypeVar("T")
 
 
 # =============================================================================
@@ -61,6 +66,7 @@ OPERATIONS_DIRECTORY = PROJECT_ROOT / "sql" / "operations"
 # =============================================================================
 # Deployment Result
 # =============================================================================
+
 
 @dataclass(slots=True)
 class WarehouseDeploymentResult:
@@ -113,41 +119,50 @@ class WarehouseLoadResult:
 # Warehouse Manager
 # =============================================================================
 
+
 class WarehouseManager:
     """
     Enterprise Warehouse Manager.
 
-    Public entry point for all warehouse operations.
+    Public façade for all warehouse services.
     """
 
+    VERSION = "3.0.0"
+
+    FRAMEWORK = "Warehouse"
+
     LOAD_SEQUENCE = (
-    
+
         (
             "Date Dimension",
             "CALL analytics.load_dim_date({start_year}, {end_year});",
         ),
-    
+
         (
             "Product Dimension",
             "CALL analytics.load_dim_product();",
         ),
-    
+
         (
             "Seller Dimension",
             "CALL analytics.load_dim_seller();",
         ),
-    
+
         (
             "Customer Dimension",
             "CALL analytics.load_dim_customer();",
         ),
-    
+
         (
             "Fact Sales",
             "CALL analytics.load_fact_sales();",
         ),
-    
+
     )
+
+    # -------------------------------------------------------------------------
+    # Construction
+    # -------------------------------------------------------------------------
 
     def __init__(
         self,
@@ -155,25 +170,11 @@ class WarehouseManager:
         registry: DDLRegistry,
         validator: WarehouseValidator,
         executor: DatabaseExecutor,
+        runtime: RuntimeManager,
     ) -> None:
         """
         Construct the Enterprise Warehouse Manager.
-
-        Parameters
-        ----------
-        registry
-            Shared DDL registry.
-
-        validator
-            Shared Warehouse Validator.
-
-        executor
-            Shared SQL execution service.
         """
-
-        # ---------------------------------------------------------------------
-        # Shared Dependencies
-        # ---------------------------------------------------------------------
 
         self.registry = registry
 
@@ -181,14 +182,55 @@ class WarehouseManager:
 
         self.executor = executor
 
+        self.runtime = runtime
+
         # ---------------------------------------------------------------------
-        # Runtime State
+        # Cached Validation
         # ---------------------------------------------------------------------
 
         self._validation_result: ValidationResult | None = None
 
-        self._validation_dirty: bool = True
-       
+        self._validation_dirty = True
+
+    # -------------------------------------------------------------------------
+    # Runtime Template
+    # -------------------------------------------------------------------------
+
+    def _execute_runtime_operation(
+        self,
+        *,
+        operation: str,
+        state: FrameworkState,
+        action: Callable[[], T],
+    ) -> T:
+        """
+        Execute a warehouse operation under Runtime control.
+        """
+
+        self.runtime.begin(
+
+            framework=self.FRAMEWORK,
+
+            operation=operation,
+
+        )
+
+        self.runtime.state(state)
+
+        try:
+
+            result = action()
+
+            self.runtime.success()
+
+            return result
+
+        except Exception as exc:
+
+            self.runtime.failure(exc)
+
+            raise
+
     # -------------------------------------------------------------------------
     # Internal Helpers
     # -------------------------------------------------------------------------
@@ -198,32 +240,29 @@ class WarehouseManager:
         script_name: str,
     ) -> ExecutionResult:
         """
-        Execute a warehouse operational SQL script.
-
-        Parameters
-        ----------
-        script_name
-            SQL filename located under sql/operations.
-
-        Returns
-        -------
-        ExecutionResult
+        Execute an operational SQL script.
         """
 
         script_path = OPERATIONS_DIRECTORY / script_name
 
         logger.info(
+
             "Executing Warehouse Operation: %s",
+
             script_name,
+
         )
 
         return self.executor.execute(
+
             script_path=script_path,
+
             script_name=script_name,
+
         )
 
     # -------------------------------------------------------------------------
-    # Deployment
+    # Public API
     # -------------------------------------------------------------------------
 
     def rebuild(self) -> WarehouseDeploymentResult:
@@ -231,9 +270,123 @@ class WarehouseManager:
         Build or rebuild the warehouse.
         """
 
-        # ---------------------------------------------------------------------
-        # Invalidate cached validation.
-        # ---------------------------------------------------------------------
+        return self._execute_runtime_operation(
+
+            operation="Deploy",
+
+            state=FrameworkState.DEPLOYING,
+
+            action=self._rebuild,
+
+        )
+
+    # -------------------------------------------------------------------------
+
+    def load(
+        self,
+        start_year: int = 2016,
+        end_year: int = 2018,
+    ) -> WarehouseLoadResult:
+        """
+        Load all warehouse dimensions and fact tables.
+        """
+
+        return self._execute_runtime_operation(
+
+            operation="Load",
+
+            state=FrameworkState.LOADING,
+
+            action=lambda: self._load(
+
+                start_year,
+
+                end_year,
+
+            ),
+
+        )
+
+    # -------------------------------------------------------------------------
+
+    def refresh(self) -> ExecutionResult:
+        """
+        Refresh the warehouse.
+        """
+
+        return self._execute_runtime_operation(
+
+            operation="Refresh",
+
+            state=FrameworkState.REFRESHING,
+
+            action=self._refresh,
+
+        )
+
+    # -------------------------------------------------------------------------
+
+    def refresh_metadata(self) -> ExecutionResult:
+        """
+        Refresh warehouse metadata.
+        """
+
+        return self._execute_runtime_operation(
+
+            operation="Refresh Metadata",
+
+            state=FrameworkState.REFRESHING,
+
+            action=self._refresh_metadata,
+
+        )
+
+    # -------------------------------------------------------------------------
+
+    def health(self) -> ExecutionResult:
+        """
+        Execute warehouse health checks.
+        """
+
+        return self._execute_runtime_operation(
+
+            operation="Health Check",
+
+            state=FrameworkState.VALIDATING,
+
+            action=self._health,
+
+        )
+
+    # -------------------------------------------------------------------------
+
+    def statistics(self) -> ExecutionResult:
+        """
+        Generate warehouse statistics.
+        """
+
+        return self._execute_runtime_operation(
+
+            operation="Statistics",
+
+            state=FrameworkState.VALIDATING,
+
+            action=self._statistics,
+
+        )
+
+    # =========================================================================
+    # Private Business Logic
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # Deployment
+    # -------------------------------------------------------------------------
+
+    def _rebuild(self) -> WarehouseDeploymentResult:
+        """
+        Build or rebuild the warehouse.
+        """
 
         self._validation_dirty = True
 
@@ -245,7 +398,13 @@ class WarehouseManager:
 
         execution_results = self.executor.execute_many(
 
-        [script.path for script in self.registry]
+            [script.path for script in self.registry]
+
+        )
+
+        self.runtime.state(
+
+            FrameworkState.VALIDATING
 
         )
 
@@ -265,9 +424,9 @@ class WarehouseManager:
             logger.error("WAREHOUSE DEPLOYMENT FAILED")
             logger.error("=" * 60)
 
-        for failure in validation.failures:
+            for failure in validation.failures:
 
-            logger.error(failure)
+                logger.error(failure)
 
         return WarehouseDeploymentResult(
 
@@ -282,14 +441,15 @@ class WarehouseManager:
             validation_result=validation,
 
         )
+
     # -------------------------------------------------------------------------
     # Warehouse Load
     # -------------------------------------------------------------------------
 
-    def load(
+    def _load(
         self,
-        start_year: int = 2016,
-        end_year: int = 2018,
+        start_year: int,
+        end_year: int,
     ) -> WarehouseLoadResult:
         """
         Load all warehouse dimensions and fact tables.
@@ -305,6 +465,8 @@ class WarehouseManager:
 
         steps: list[WarehouseLoadStep] = []
 
+        total_rows_processed = 0
+
         for name, sql_template in self.LOAD_SEQUENCE:
 
             sql = sql_template.format(
@@ -315,7 +477,13 @@ class WarehouseManager:
 
             )
 
-            logger.info("Loading %s...", name)
+            logger.info(
+
+                "Loading %s...",
+
+                name,
+
+            )
 
             result = self.executor.execute_sql(
 
@@ -341,6 +509,17 @@ class WarehouseManager:
 
             )
 
+            #
+            # Future-proof runtime metrics.
+            #
+            # Replace this with actual row counts when the executor
+            # exposes them.
+            #
+
+            if result.success:
+
+                total_rows_processed += 1
+
             if not result.success:
 
                 logger.error(
@@ -358,12 +537,20 @@ class WarehouseManager:
                     procedures_executed=len(steps),
 
                     execution_time_seconds=(
+
                         perf_counter() - started
+
                     ),
 
                     steps=steps,
 
                 )
+
+        self.runtime.add_rows_processed(
+
+            total_rows_processed
+
+        )
 
         logger.info("=" * 60)
         logger.info("WAREHOUSE DATA LOAD COMPLETED")
@@ -376,7 +563,9 @@ class WarehouseManager:
             procedures_executed=len(steps),
 
             execution_time_seconds=(
+
                 perf_counter() - started
+
             ),
 
             steps=steps,
@@ -387,18 +576,34 @@ class WarehouseManager:
     # Warehouse Operations
     # -------------------------------------------------------------------------
 
-    def refresh(self) -> ExecutionResult:
+    def _refresh(
+        self,
+    ) -> ExecutionResult:
         """
         Execute refresh_warehouse.sql.
         """
 
         self._validation_dirty = True
 
-        return self._run_operation(
+        result = self._run_operation(
+
             "refresh_warehouse.sql"
+
         )
 
-    def refresh_metadata(self) -> ExecutionResult:
+    #
+    # Refresh the cached validation after a successful refresh.
+    #
+
+        if result.success:
+
+            self.validate()
+
+        return result
+
+    # -------------------------------------------------------------------------
+
+    def _refresh_metadata(self) -> ExecutionResult:
         """
         Refresh warehouse metadata.
         """
@@ -406,32 +611,50 @@ class WarehouseManager:
         self._validation_dirty = True
 
         return self._run_operation(
-        "refresh_metadata.sql"
+
+            "refresh_metadata.sql"
+
         )
 
-    def health(self) -> ExecutionResult:
+    # -------------------------------------------------------------------------
+
+    def _health(self) -> ExecutionResult:
         """
         Execute warehouse health checks.
         """
 
         return self._run_operation(
+
             "warehouse_health.sql"
+
         )
 
-    def statistics(self) -> ExecutionResult:
+    # -------------------------------------------------------------------------
+
+    def _statistics(self) -> ExecutionResult:
         """
         Generate warehouse statistics.
         """
 
         return self._run_operation(
+
             "warehouse_statistics.sql"
+
         )
 
-    # -------------------------------------------------------------------------
+        # -------------------------------------------------------------------------
     # Validation
     # -------------------------------------------------------------------------
 
     def validate(self) -> ValidationResult:
+        """
+        Validate the warehouse.
+
+        Returns
+        -------
+        ValidationResult
+            Cached validation result.
+        """
 
         if self._validation_dirty:
 
@@ -440,6 +663,7 @@ class WarehouseManager:
             self._validation_dirty = False
 
         return self._validation_result
+
     # -------------------------------------------------------------------------
     # Status
     # -------------------------------------------------------------------------
@@ -457,9 +681,10 @@ class WarehouseManager:
     # Version
     # -------------------------------------------------------------------------
 
-    def version(self) -> str:
+    @classmethod
+    def version(cls) -> str:
         """
         Return framework version.
         """
 
-        return "2.2.0"
+        return cls.VERSION

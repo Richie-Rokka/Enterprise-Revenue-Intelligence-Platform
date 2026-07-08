@@ -3,24 +3,24 @@
 Enterprise Revenue Intelligence Platform (ERIP)
 ===============================================================================
 
-Module      : test_semantic_manager.py
-Purpose     : Semantic Framework Integration Test
+Module      : test_runtime_manager.py
+Purpose     : Runtime Framework Integration Test
 
 Author      : ERIP
 Version     : 4.0.0
 
 Description
 -----------
-Integration test for the Enterprise Semantic Framework.
+Integration test for the Enterprise Runtime Framework.
 
 Exercises:
 
-- Framework Status
-- Semantic Deployment
-- Semantic Validation
-- Semantic Refresh
-- Runtime Integration
-- Presentation Framework
+- Runtime Status
+- Begin Execution
+- State Transition
+- Runtime Metrics
+- Successful Completion
+- Runtime Presentation
 - Framework Version
 
 ===============================================================================
@@ -30,51 +30,49 @@ from __future__ import annotations
 
 from src.core.services import ServiceContainer
 
-from src.presentation import (
-    RuntimePresenter,
-    SemanticPresenter,
-)
+from src.presentation import RuntimePresenter
+
+from src.runtime.models import FrameworkState
 
 
 def main() -> None:
     """
-    Execute Semantic Framework integration test.
+    Execute Runtime Framework integration test.
     """
 
     services = ServiceContainer()
 
-    semantic = services.semantic_manager
     runtime = services.runtime_manager
 
     print("=" * 80)
-    print("Enterprise Semantic Framework")
+    print("Enterprise Runtime Framework")
     print("=" * 80)
 
     # -------------------------------------------------------------------------
-    # Status
+    # Runtime Status
     # -------------------------------------------------------------------------
 
-    print("\nSemantic Status")
+    print("\nRuntime Status")
     print("-" * 80)
 
     print(
 
-        semantic.status()
+        runtime.status()
 
     )
 
     # -------------------------------------------------------------------------
-    # Deployment
+    # Begin Execution
     # -------------------------------------------------------------------------
 
-    print("\nSemantic Deployment")
+    print("\nBegin Execution")
     print("-" * 80)
 
-    deployment = semantic.deploy()
+    runtime.begin(
 
-    SemanticPresenter.present(
+        framework="Warehouse",
 
-        deployment
+        operation="Deploy",
 
     )
 
@@ -85,30 +83,21 @@ def main() -> None:
     )
 
     # -------------------------------------------------------------------------
-    # Validation
+    # Update State
     # -------------------------------------------------------------------------
 
-    print("\nSemantic Validation")
+    print("\nUpdate State")
     print("-" * 80)
 
-    SemanticPresenter.present(
+    runtime.state(
 
-        semantic.validate()
+        FrameworkState.DEPLOYING
 
     )
 
-    # -------------------------------------------------------------------------
-    # Refresh
-    # -------------------------------------------------------------------------
+    runtime.add_rows_processed(
 
-    print("\nSemantic Refresh")
-    print("-" * 80)
-
-    deployment = semantic.refresh()
-
-    SemanticPresenter.present(
-
-        deployment
+        112650
 
     )
 
@@ -119,15 +108,30 @@ def main() -> None:
     )
 
     # -------------------------------------------------------------------------
-    # Final Validation
+    # Complete Execution
     # -------------------------------------------------------------------------
 
-    print("\nFinal Semantic Validation")
+    print("\nComplete Execution")
     print("-" * 80)
 
-    SemanticPresenter.present(
+    runtime.success()
 
-        semantic.validate()
+    RuntimePresenter.present(
+
+        runtime.execution
+
+    )
+
+    # -------------------------------------------------------------------------
+    # Runtime Status
+    # -------------------------------------------------------------------------
+
+    print("\nRuntime Status")
+    print("-" * 80)
+
+    print(
+
+        runtime.status()
 
     )
 
@@ -135,18 +139,18 @@ def main() -> None:
     # Framework Version
     # -------------------------------------------------------------------------
 
-    print("\nSemantic Framework Version")
+    print("\nRuntime Framework Version")
     print("-" * 80)
 
     print(
 
-        semantic.version()
+        runtime.version()
 
     )
 
     print()
     print("=" * 80)
-    print("Semantic Framework Test Completed Successfully")
+    print("Runtime Framework Test Completed Successfully")
     print("=" * 80)
 
 

@@ -4,94 +4,170 @@ Enterprise Revenue Intelligence Platform (ERIP)
 ===============================================================================
 
 Module      : test_monitoring_manager.py
-Purpose     : Monitoring Framework Test
+Purpose     : Monitoring Framework Integration Test
+
 Author      : ERIP
-Version     : 2.0.0
+Version     : 4.0.0
+
+Description
+-----------
+Integration test for the Enterprise Monitoring Framework.
+
+Exercises
+
+- Framework Status
+- Platform Health
+- Runtime Metrics
+- Monitoring Statistics
+- Enterprise Dashboard
+- Monitoring Validation
+- Runtime Integration
+- Framework Version
 
 ===============================================================================
 """
 
-from pprint import pprint
+from __future__ import annotations
 
 from src.core.services import ServiceContainer
 
-services = ServiceContainer()
+from src.presentation import (
+    MonitoringPresenter,
+    RuntimePresenter,
+)
 
 
 def main() -> None:
+    """
+    Execute Monitoring Framework integration test.
+    """
 
-    manager = services.monitoring_manager
+    services = ServiceContainer()
 
-    print("=" * 70)
+    monitoring = services.monitoring_manager
+    runtime = services.runtime_manager
+
+    print("=" * 80)
     print("Enterprise Monitoring Framework")
-    print("=" * 70)
+    print("=" * 80)
 
     # -------------------------------------------------------------------------
-    # Framework Status
+    # Status
     # -------------------------------------------------------------------------
 
     print("\nMonitoring Status")
-    print("-" * 70)
+    print("-" * 80)
 
-    print(manager.status())
+    print(
+
+        monitoring.status()
+
+    )
 
     # -------------------------------------------------------------------------
     # Platform Health
     # -------------------------------------------------------------------------
 
     print("\nPlatform Health")
-    print("-" * 70)
+    print("-" * 80)
 
-    pprint(manager.health())
+    MonitoringPresenter.present(
+
+        monitoring.health()
+
+    )
 
     # -------------------------------------------------------------------------
     # Runtime Metrics
     # -------------------------------------------------------------------------
 
     print("\nRuntime Metrics")
-    print("-" * 70)
+    print("-" * 80)
 
-    pprint(manager.metrics())
+    MonitoringPresenter.present(
 
-    # -------------------------------------------------------------------------
-    # Warehouse Statistics
-    # -------------------------------------------------------------------------
+        monitoring.metrics()
 
-    print("\nWarehouse Statistics")
-    print("-" * 70)
-
-    pprint(manager.warehouse_statistics())
+    )
 
     # -------------------------------------------------------------------------
-    # Dashboard
+    # Monitoring Statistics
     # -------------------------------------------------------------------------
 
-    print("\nMonitoring Dashboard")
-    print("-" * 70)
+    print("\nMonitoring Statistics")
+    print("-" * 80)
 
-    pprint(manager.dashboard())
+    operation = monitoring.statistics()
+
+    MonitoringPresenter.present(
+
+        operation
+
+    )
+
+    RuntimePresenter.present(
+
+        runtime.execution
+
+    )
+
+    # -------------------------------------------------------------------------
+    # Enterprise Dashboard
+    # -------------------------------------------------------------------------
+
+    print("\nEnterprise Monitoring Dashboard")
+    print("-" * 80)
+
+    MonitoringPresenter.present(
+
+        monitoring.dashboard()
+
+    )
 
     # -------------------------------------------------------------------------
     # Validation
     # -------------------------------------------------------------------------
 
     print("\nMonitoring Validation")
-    print("-" * 70)
+    print("-" * 80)
 
-    pprint(manager.validate())
+    MonitoringPresenter.present(
+
+        monitoring.validate()
+
+    )
 
     # -------------------------------------------------------------------------
-    # Version
+    # Final Validation
+    # -------------------------------------------------------------------------
+
+    print("\nFinal Monitoring Validation")
+    print("-" * 80)
+
+    MonitoringPresenter.present(
+
+        monitoring.validate()
+
+    )
+
+    # -------------------------------------------------------------------------
+    # Framework Version
     # -------------------------------------------------------------------------
 
     print("\nMonitoring Framework Version")
-    print("-" * 70)
+    print("-" * 80)
 
-    print(manager.version())
+    print(
 
-    print("\n" + "=" * 70)
+        monitoring.version()
+
+    )
+
+    print()
+
+    print("=" * 80)
     print("Monitoring Framework Test Completed Successfully")
-    print("=" * 70)
+    print("=" * 80)
 
 
 if __name__ == "__main__":

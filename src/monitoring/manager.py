@@ -6,34 +6,49 @@ Enterprise Revenue Intelligence Platform (ERIP)
 Module      : manager.py
 Package     : src.monitoring
 Purpose     : Enterprise Monitoring Manager
+
 Author      : ERIP
-Version     : 2.0.0
+Version     : 3.0.0
 
 Description
 -----------
-Public interface for all Enterprise Monitoring operations.
+Enterprise Monitoring Framework Manager.
+
+Provides the public interface for all monitoring operations and coordinates
+platform monitoring through the Enterprise Runtime Framework.
 
 Responsibilities
 ----------------
-- Platform health
-- Runtime metrics
-- Dashboard generation
-- Monitoring validation
-- Framework status
+• Platform health
+• Runtime metrics
+• Warehouse statistics
+• Enterprise dashboard
+• Monitoring validation
+• Framework status
+
+Architecture
+------------
+Monitoring is an Enterprise Coordination Framework.
+
+Unlike the Warehouse and Semantic frameworks, Monitoring primarily aggregates
+information from other frameworks rather than deploying database objects.
 
 ===============================================================================
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-from src.observability import get_logger
+from pathlib import Path
 
 from src.database.database_executor import (
     DatabaseExecutor,
     ExecutionResult,
 )
+
+from src.observability import get_logger
+
+from src.runtime.manager import RuntimeManager
+from src.runtime.models import FrameworkState
 
 from src.semantic.manager import SemanticManager
 from src.warehouse.manager import WarehouseManager
@@ -47,14 +62,18 @@ from .models import (
     SemanticStatistics,
     WarehouseStatistics,
 )
+
 from .registry import MonitoringRegistry
 from .validator import MonitoringValidator
 
-from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-OPERATIONS_DIRECTORY = PROJECT_ROOT / "sql" / "operations"
+OPERATIONS_DIRECTORY = (
+    PROJECT_ROOT
+    / "sql"
+    / "operations"
+)
 
 logger = get_logger(__name__)
 
@@ -68,12 +87,25 @@ class MonitoringManager:
     """
     Enterprise Monitoring Manager.
 
-    Public façade for all monitoring services.
+    Coordinates enterprise monitoring across all platform frameworks.
+
+    The Monitoring Manager is responsible for:
+
+    • Platform health
+    • Runtime metrics
+    • Monitoring dashboard
+    • Operational statistics
+    • Monitoring validation
+
+    Monitoring is intentionally lightweight and acts as an orchestration
+    layer rather than a deployment framework.
     """
 
-    VERSION = "2.0.0"
+    VERSION = "3.0.0"
 
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # Construction
+    # =========================================================================
 
     def __init__(
         self,
@@ -83,26 +115,10 @@ class MonitoringManager:
         executor: DatabaseExecutor,
         warehouse: WarehouseManager,
         semantic: SemanticManager,
+        runtime: RuntimeManager,
     ) -> None:
         """
         Construct the Enterprise Monitoring Manager.
-
-        Parameters
-        ----------
-        registry
-            Shared Monitoring Registry.
-
-        validator
-            Shared Monitoring Validator.
-
-        executor
-            Shared Database Executor.
-
-        warehouse
-            Shared Warehouse Manager.
-
-        semantic
-            Shared Semantic Manager.
         """
 
         # ---------------------------------------------------------------------
@@ -119,22 +135,139 @@ class MonitoringManager:
 
         self.semantic = semantic
 
+        self.runtime = runtime
+
         # ---------------------------------------------------------------------
-        # Runtime State
+        # Cached State
         # ---------------------------------------------------------------------
 
         self._validation_result: MonitoringValidationResult | None = None
 
-        self._validation_dirty: bool = True
+        self._validation_dirty = True
 
-        
-    # -------------------------------------------------------------------------
-    # Health
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # Public API
+    # =========================================================================
 
-    def health(self) -> PlatformHealth:
+    def health(
+        self,
+    ) -> PlatformHealth:
         """
-        Return platform health.
+        Return overall enterprise platform health.
+        """
+
+        return self._health()
+
+    # -------------------------------------------------------------------------
+
+    def metrics(
+        self,
+    ) -> RuntimeStatistics:
+        """
+        Return enterprise runtime metrics.
+        """
+
+        return self._metrics()
+
+    # -------------------------------------------------------------------------
+
+    def statistics(
+        self,
+    ) -> ExecutionResult:
+        """
+        Execute Monitoring statistics under Runtime control.
+        """
+
+        self.runtime.begin(
+
+            framework="Monitoring",
+
+            operation="Statistics",
+
+        )
+
+        self.runtime.state(
+
+            FrameworkState.VALIDATING
+
+        )
+
+        try:
+
+            result = self._statistics()
+
+            self.runtime.success()
+
+            return result
+
+        except Exception as exc:
+
+            self.runtime.failure(
+
+                exc
+
+            )
+
+            raise
+
+    # -------------------------------------------------------------------------
+
+    def dashboard(
+        self,
+    ) -> MonitoringDashboard:
+        """
+        Build the Enterprise Monitoring Dashboard.
+        """
+
+        return self._dashboard()
+
+    # -------------------------------------------------------------------------
+
+    def validate(
+        self,
+    ) -> MonitoringValidationResult:
+        """
+        Validate the Monitoring Framework.
+
+        Validation results are cached until the monitoring state changes.
+        """
+
+        return self._validate()
+
+    # -------------------------------------------------------------------------
+
+    def status(
+        self,
+    ) -> str:
+        """
+        Return Monitoring Framework status.
+        """
+
+        validation = self.validate()
+
+        return "READY" if validation.passed else "INVALID"
+
+    # -------------------------------------------------------------------------
+
+    @classmethod
+    def version(
+        cls,
+    ) -> str:
+        """
+        Return framework version.
+        """
+
+        return cls.VERSION
+
+    # =========================================================================
+    # Private Operations
+    # =========================================================================
+
+    def _health(
+        self,
+    ) -> PlatformHealth:
+        """
+        Build the Enterprise Platform Health model.
         """
 
         warehouse_status = self.warehouse.status()
@@ -142,10 +275,21 @@ class MonitoringManager:
         semantic_status = self.semantic.status()
 
         overall = (
+
             "HEALTHY"
-            if warehouse_status == "READY"
-            and semantic_status == "READY"
+
+            if (
+
+                warehouse_status == "READY"
+
+                and
+
+                semantic_status == "READY"
+
+            )
+
             else "UNHEALTHY"
+
         )
 
         return PlatformHealth(
@@ -161,12 +305,15 @@ class MonitoringManager:
         )
 
     # -------------------------------------------------------------------------
-    # Metrics
-    # -------------------------------------------------------------------------
 
-    def metrics(self) -> RuntimeStatistics:
+    def _metrics(
+        self,
+    ) -> RuntimeStatistics:
         """
-        Return runtime statistics.
+        Build Runtime statistics.
+
+        Runtime metrics will become richer in a future sprint when Runtime
+        telemetry is expanded.
         """
 
         return RuntimeStatistics(
@@ -178,37 +325,46 @@ class MonitoringManager:
         )
 
     # -------------------------------------------------------------------------
-    # Warehouse Statistics
-    # -------------------------------------------------------------------------
 
-    def warehouse_statistics(self) -> ExecutionResult:
+    def _statistics(
+        self,
+    ) -> ExecutionResult:
         """
-        Execute warehouse statistics.
+        Execute enterprise Monitoring statistics.
         """
+
+        logger.info(
+
+            "Executing Monitoring Operation: monitoring_statistics.sql"
+
+        )
 
         return self.executor.execute(
 
-        script_path=(
-            OPERATIONS_DIRECTORY
-            / "warehouse_statistics.sql"
-        ),
+            script_path=(
 
-        script_name="warehouse_statistics.sql",
+                OPERATIONS_DIRECTORY
+
+                / "monitoring_statistics.sql"
+
+            ),
+
+            script_name="monitoring_statistics.sql",
 
         )
 
     # -------------------------------------------------------------------------
-    # Dashboard
-    # -------------------------------------------------------------------------
 
-    def dashboard(self) -> MonitoringDashboard:
+    def _dashboard(
+        self,
+    ) -> MonitoringDashboard:
         """
-        Build enterprise monitoring dashboard.
+        Build the Enterprise Monitoring Dashboard.
         """
 
-        health = self.health()
+        health = self._health()
 
-        runtime = self.metrics()
+        runtime = self._metrics()
 
         deployment = DeploymentStatistics(
 
@@ -259,42 +415,105 @@ class MonitoringManager:
         )
 
     # -------------------------------------------------------------------------
-    # Validation
-    # -------------------------------------------------------------------------
 
-    def validate(self) -> MonitoringValidationResult:
+    def _validate(
+        self,
+    ) -> MonitoringValidationResult:
         """
-        Validate monitoring framework.
+        Validate the Monitoring Framework.
         """
 
         if self._validation_dirty:
 
-            self._validation_result = self.validator.validate()
+            logger.info(
+
+                "Starting Monitoring validation..."
+
+            )
+
+            self._validation_result = (
+
+                self.validator.validate()
+
+            )
 
             self._validation_dirty = False
 
         return self._validation_result
 
-    # -------------------------------------------------------------------------
-    # Status
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # Dashboard Helpers
+    # =========================================================================
 
-    def status(self) -> str:
+    def _warehouse_statistics(
+        self,
+    ) -> WarehouseStatistics:
         """
-        Return monitoring status.
-        """
+        Build Warehouse statistics.
 
-        validation = self.validate()
-
-        return "READY" if validation.passed else "INVALID"
-
-    # -------------------------------------------------------------------------
-    # Version
-    # -------------------------------------------------------------------------
-
-    def version(self) -> str:
-        """
-        Framework version.
+        TODO
+        ----
+        Replace placeholder values with Runtime telemetry during the
+        Observability enhancement sprint.
         """
 
-        return self.VERSION
+        return WarehouseStatistics(
+
+            dimensions_loaded=4,
+
+            fact_tables_loaded=1,
+
+            rows_processed=112650,
+
+            execution_time_seconds=0.0,
+
+        )
+
+    # -------------------------------------------------------------------------
+
+    def _semantic_statistics(
+        self,
+    ) -> SemanticStatistics:
+        """
+        Build Semantic statistics.
+
+        TODO
+        ----
+        Replace placeholder values with Semantic runtime metrics.
+        """
+
+        return SemanticStatistics(
+
+            views_deployed=5,
+
+            validation_checks=4,
+
+            deployment_success=True,
+
+            execution_time_seconds=0.0,
+
+        )
+
+    # -------------------------------------------------------------------------
+
+    def _deployment_statistics(
+        self,
+    ) -> DeploymentStatistics:
+        """
+        Build deployment statistics.
+
+        TODO
+        ----
+        Populate from Runtime execution history when deployment telemetry
+        becomes available.
+        """
+
+        return DeploymentStatistics(
+
+            deployment_success=True,
+
+            scripts_executed=0,
+
+            execution_time_seconds=0.0,
+
+        )
