@@ -70,11 +70,27 @@ class ExecutionResult:
     Result of a database execution.
     """
 
+    # -------------------------------------------------------------------------
+    # Execution
+    # -------------------------------------------------------------------------
+
     script_name: str
 
     success: bool
 
     execution_time_seconds: float
+
+    # -------------------------------------------------------------------------
+    # Telemetry
+    # -------------------------------------------------------------------------
+
+    rows_processed: int = 0
+
+    query_result: dict | None = None
+
+    # -------------------------------------------------------------------------
+    # Error
+    # -------------------------------------------------------------------------
 
     error: str | None = None
 
@@ -152,11 +168,30 @@ class DatabaseExecutor:
 
                 with self.engine.begin() as connection:
 
-                    connection.execute(
-
+                    result = connection.execute(
                         text(sql)
-
                     )
+
+                    query_result = None
+
+                    if result.returns_rows:
+
+                        row = result.mappings().first()
+
+                        if row:
+
+                            query_result = dict(row)
+
+                rows_processed = result.rowcount
+
+                if rows_processed is None:
+
+                    rows_processed = 0
+
+                elif rows_processed < 0:
+
+                    rows_processed = 0
+
 
             logger.info(
 
@@ -176,7 +211,13 @@ class DatabaseExecutor:
 
                 execution_time_seconds=timer.elapsed_seconds,
 
+                rows_processed=rows_processed,
+
+                query_result=query_result,
+
             )
+
+            
 
         except Exception as error:
 
@@ -241,15 +282,27 @@ class DatabaseExecutor:
 
         try:
 
+            
+
             with Timer() as timer:
 
                 with self.engine.begin() as connection:
 
-                    connection.execute(
+                    result = connection.execute(
 
                         text(sql)
 
                     )
+
+                    rows_processed = result.rowcount
+
+                    if rows_processed is None:
+
+                        rows_processed = 0
+
+                    elif rows_processed < 0:
+
+                        rows_processed = 0
 
             logger.info(
 
@@ -268,6 +321,8 @@ class DatabaseExecutor:
                 success=True,
 
                 execution_time_seconds=timer.elapsed_seconds,
+
+                rows_processed=rows_processed,
 
             )
 

@@ -33,6 +33,7 @@ container passed between orchestration stages.
 
 from __future__ import annotations
 
+from src.core.services import ServiceContainer
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -75,8 +76,17 @@ class ExecutionContext:
     # -------------------------------------------------------------------------
 
     engine: Any = None
+
     logger: Any = None
+
     config: Any = None
+
+    #
+    # Enterprise Service Container
+    #
+    # Provides shared access to every platform framework.
+    #
+    services: ServiceContainer | None = None
 
     # -------------------------------------------------------------------------
     # Metrics

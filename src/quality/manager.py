@@ -40,6 +40,7 @@ from .models import (
     QualitySummary,
 )
 from .validator import QualityValidator
+from .rules import RulesEngine
 
 
 logger = get_logger(__name__)
@@ -69,6 +70,7 @@ class QualityManager:
         warehouse: WarehouseManager,
         semantic: SemanticManager,
         monitoring: MonitoringManager,
+        rules_engine: RulesEngine,
     ) -> None:
         """
         Construct the Enterprise Data Quality Manager.
@@ -101,6 +103,12 @@ class QualityManager:
 
         self.monitoring = monitoring
 
+        self.rules_engine = rules_engine
+
+        self._rule_results = None
+
+        self._rules_dirty = True
+
         # ---------------------------------------------------------------------
         # Runtime State
         # ---------------------------------------------------------------------
@@ -108,6 +116,14 @@ class QualityManager:
         self._validation_result: DataQualityValidationResult | None = None
 
         self._validation_dirty: bool = True
+
+        # ---------------------------------------------------------------------
+        # Rule Execution Cache
+        # ---------------------------------------------------------------------
+
+        self._rule_results = None
+
+        self._rules_dirty = True
 
     # -------------------------------------------------------------------------
     # Validation
@@ -126,6 +142,19 @@ class QualityManager:
 
         return self._validation_result
 
+    def execute_rules(self):
+        """
+        Execute quality rules once per framework execution.
+        """
+
+        if self._rules_dirty:
+
+            self._rule_results = self.rules_engine.execute()
+
+            self._rules_dirty = False
+
+        return self._rule_results
+
     # -------------------------------------------------------------------------
     # Summary
     # -------------------------------------------------------------------------
@@ -139,22 +168,26 @@ class QualityManager:
         Placeholder implementation until rules.py is introduced.
         """
 
+        results = self.execute_rules()
+
         return QualitySummary(
 
-            total_rules=0,
+            total_rules=len(results),
 
-            rules_passed=0,
+            rules_passed=sum(r.passed for r in results),
 
-            rules_failed=0,
+            rules_failed=sum(not r.passed for r in results),
 
-            total_rows_checked=0,
+            total_rows_checked=sum(r.rows_checked for r in results),
 
-            total_rows_failed=0,
+            total_rows_failed=sum(r.rows_failed for r in results),
 
-            execution_time_seconds=0.0,
+            execution_time_seconds=sum(
+                r.execution_time_seconds
+                for r in results
+            ),
 
-        )
-
+)
     # -------------------------------------------------------------------------
     # Scorecard
     # -------------------------------------------------------------------------
@@ -199,13 +232,15 @@ class QualityManager:
         Placeholder implementation until rules.py is introduced.
         """
 
+        results = self.execute_rules()
+
         return BusinessRuleSummary(
 
-            rules_executed=0,
+            rules_executed=len(results),
 
-            rules_passed=0,
+            rules_passed=sum(r.passed for r in results),
 
-            rules_failed=0,
+            rules_failed=sum(not r.passed for r in results),
 
             critical_failures=0,
 
@@ -222,15 +257,23 @@ class QualityManager:
         Return enterprise quality dashboard.
         """
 
+        self.execute_rules()
+
+        summary = self.summary()
+
+        scorecard = self.scorecard()
+
+        rules = self.rules()
+        
         return QualityDashboard(
 
             validation=self.validate(),
 
-            summary=self.summary(),
+            summary=summary,
 
-            scorecard=self.scorecard(),
+            scorecard=scorecard,
 
-            business_rules=self.rules(),
+            business_rules=rules,
 
         )
 

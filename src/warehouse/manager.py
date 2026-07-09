@@ -253,13 +253,21 @@ class WarehouseManager:
 
         )
 
-        return self.executor.execute(
+        result = self.executor.execute(
 
             script_path=script_path,
 
             script_name=script_name,
 
         )
+
+        self.runtime.add_rows_processed(
+
+            result.rows_processed
+
+        )
+
+        return result
 
     # -------------------------------------------------------------------------
     # Public API
@@ -509,16 +517,9 @@ class WarehouseManager:
 
             )
 
-            #
-            # Future-proof runtime metrics.
-            #
-            # Replace this with actual row counts when the executor
-            # exposes them.
-            #
-
             if result.success:
 
-                total_rows_processed += 1
+                total_rows_processed += result.rows_processed
 
             if not result.success:
 

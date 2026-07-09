@@ -7,7 +7,7 @@ Module      : platform.py
 Package     : src.core
 Purpose     : Enterprise Platform Bootstrap & Lifecycle Management
 Author      : ERIP
-Version     : 2.2.1
+Version     : 3.0.0
 
 Description
 -----------
@@ -192,6 +192,8 @@ class Platform:
 
                     config=config,
 
+                    services=self.services,
+
                 )
 
                 # ---------------------------------------------------------
@@ -214,30 +216,16 @@ class Platform:
             # Pipeline Summary
             # ---------------------------------------------------------
 
-            summary.rows_processed = sum(
+            summary.rows_processed = pipeline.total_rows_processed
 
-                result.rows_processed
-
-                for result in results
-
-            )
-
-            summary.rows_loaded = sum(
-
-                result.rows_loaded
-
-                for result in results
-
-            )
+            summary.rows_loaded = pipeline.total_rows_loaded
 
             summary.rows_failed = sum(
-
                 result.errors
-
                 for result in results
-
             )
 
+            
             summary.execution_time_seconds = timer.elapsed_seconds
 
             memory = get_memory_usage()

@@ -3,29 +3,32 @@
 Enterprise Revenue Intelligence Platform (ERIP)
 ===============================================================================
 
-Module      : semantic_stage.py
+Module      : monitoring_stage.py
 Package     : src.orchestration.stages
-Purpose     : Semantic Layer Pipeline Stage
+Purpose     : Monitoring Pipeline Stage
 Author      : ERIP
-Version     : 2.0.0
+Version     : 4.0.0
 
 Description
 -----------
-Pipeline stage responsible for deploying and validating the Enterprise
-Semantic Layer.
+Pipeline adapter for the Enterprise Monitoring Framework.
+
+This stage allows the Enterprise Pipeline Engine to execute the Monitoring
+Framework without coupling orchestration to MonitoringManager.
 
 Responsibilities
 ----------------
-- Execute SemanticManager
+- Execute MonitoringManager
+- Convert ExecutionResult into StageResult
+- Publish execution metadata
 - Return standardized StageResult
-- Report deployment metrics
 
 ===============================================================================
 """
 
 from __future__ import annotations
 
-from src.semantic.manager import SemanticManager
+from src.monitoring.manager import MonitoringManager
 
 from src.orchestration.execution_context import ExecutionContext
 from src.orchestration.stage import Stage
@@ -35,21 +38,31 @@ from src.orchestration.stage_result import (
 )
 
 
-class SemanticStage(Stage):
+class MonitoringStage(Stage):
     """
-    Pipeline stage responsible for semantic layer deployment.
+    Pipeline adapter for the Enterprise Monitoring Framework.
     """
 
-    name = "semantic"
+    name = "monitoring"
 
-    # -------------------------------------------------------------------------
+    description = "Execute Enterprise Monitoring Framework"
+
+    # =========================================================================
+    # Construction
+    # =========================================================================
+
+    
+
+    # =========================================================================
+    # Lifecycle
+    # =========================================================================
 
     def validate(
         self,
         context: ExecutionContext,
     ) -> bool:
         """
-        Validate stage prerequisites.
+        Validate Monitoring stage prerequisites.
         """
 
         return True
@@ -61,18 +74,18 @@ class SemanticStage(Stage):
         context: ExecutionContext,
     ) -> StageResult:
         """
-        Execute semantic deployment.
+        Execute the Monitoring Framework.
         """
 
         context.set_stage(self.name)
 
-        manager = context.services.semantic_manager
+        manager = context.services.monitoring_manager
 
-        deployment = manager.rebuild()
+        execution = manager.statistics()
 
         status = (
             StageStatus.SUCCESS
-            if deployment.success
+            if execution.success
             else StageStatus.FAILED
         )
 
@@ -82,29 +95,39 @@ class SemanticStage(Stage):
 
             status=status,
 
-            rows_processed=deployment.scripts_executed,
+            rows_processed=execution.rows_processed,
 
-            rows_loaded=deployment.scripts_executed,
+            rows_loaded=execution.rows_processed,
 
             warnings=0,
 
-            errors=0 if deployment.success else 1,
+            errors=0 if execution.success else 1,
 
             message=(
-                "Semantic layer deployed successfully."
-                if deployment.success
-                else "Semantic layer deployment failed."
+                "Monitoring statistics completed successfully."
+                if execution.success
+                else "Monitoring statistics failed."
             ),
         )
 
         result.add_metadata(
-            "validation_passed",
-            deployment.validation_passed,
+            "framework_status",
+            manager.status(),
         )
 
         result.add_metadata(
-            "scripts_executed",
-            deployment.scripts_executed,
+            "operation",
+            "statistics",
+        )
+
+        result.add_metadata(
+            "script_name",
+            execution.script_name,
+        )
+
+        result.add_metadata(
+            "execution_time_seconds",
+            execution.execution_time_seconds,
         )
 
         return result
@@ -117,7 +140,7 @@ class SemanticStage(Stage):
     ) -> None:
 
         context.logger.info(
-            "Starting Semantic Stage..."
+            "Starting Monitoring Stage..."
         )
 
     # -------------------------------------------------------------------------
@@ -129,7 +152,7 @@ class SemanticStage(Stage):
     ) -> None:
 
         context.logger.info(
-            "Semantic Stage Completed."
+            "Monitoring Stage Completed."
         )
 
     # -------------------------------------------------------------------------

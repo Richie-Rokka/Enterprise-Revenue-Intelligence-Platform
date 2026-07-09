@@ -41,6 +41,8 @@ class QualityRule:
     Enterprise data quality rule.
     """
 
+    rule_id: str
+
     name: str
 
     description: str
@@ -48,6 +50,8 @@ class QualityRule:
     category: str
 
     severity: str
+
+    script_name: str
 
     enabled: bool = True
 
@@ -63,7 +67,13 @@ class QualityCheckResult:
     Result of a single quality rule.
     """
 
+    rule_id: str
+
     rule_name: str
+
+    category: str
+
+    severity: str
 
     passed: bool
 
@@ -72,6 +82,8 @@ class QualityCheckResult:
     rows_failed: int
 
     execution_time_seconds: float
+
+    quality_score: float
 
     message: str | None = None
 

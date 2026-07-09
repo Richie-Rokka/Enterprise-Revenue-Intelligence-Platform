@@ -24,9 +24,18 @@ Responsibilities
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from src.database.database_executor import DatabaseExecutor
+
 from time import perf_counter
 
+from .registry import QualityRuleRegistry
 from src.observability import get_logger
+
+from uuid import uuid4
+
+from sqlalchemy import text
 
 from .models import (
     QualityCheckResult,
@@ -51,81 +60,83 @@ class RulesEngine:
 
     # -------------------------------------------------------------------------
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        executor: DatabaseExecutor,
+    ) -> None:
 
-        self._rules = self._build_rules()
+        self.executor = executor
 
+        self.registry = QualityRuleRegistry()
+
+        self._quality_directory = (
+            Path(__file__).resolve().parents[2]
+            / "sql"
+            / "quality"
+        )
+
+        self._register_default_rules()
     # -------------------------------------------------------------------------
 
-    @staticmethod
-    def _build_rules() -> list[QualityRule]:
+    def _register_default_rules(self) -> None:
         """
-        Register Enterprise quality rules.
+        Register default enterprise quality rules.
         """
 
-        return [
-
+        self.registry.register(
             QualityRule(
-
-                name="Completeness",
-
-                description="Required fields are populated.",
-
-                category="Completeness",
-
-                severity="HIGH",
-
-            ),
-
-            QualityRule(
-
-                name="Uniqueness",
-
-                description="Duplicate business keys.",
-
+                rule_id="DQ-001",
+                name="Duplicate Customer Detection",
+                description="Detect duplicate customer business keys.",
                 category="Uniqueness",
-
-                severity="HIGH",
-
-            ),
-
-            QualityRule(
-
-                name="Referential Integrity",
-
-                description="Foreign key consistency.",
-
-                category="Integrity",
-
                 severity="CRITICAL",
+                script_name="001_check_duplicate_customers.sql",
+            )
+        )
 
-            ),
-
+        self.registry.register(
             QualityRule(
-
-                name="Freshness",
-
-                description="Data currency.",
-
-                category="Freshness",
-
-                severity="MEDIUM",
-
-            ),
-
-            QualityRule(
-
-                name="Business Rules",
-
-                description="Business validation rules.",
-
-                category="Business",
-
+                rule_id="DQ-002",
+                name="Customer Name Completeness",
+                description="Customer name completeness.",
+                category="Completeness",
                 severity="HIGH",
+                script_name="002_check_null_customer_names.sql",
+            )
+        )
 
-            ),
+        self.registry.register(
+            QualityRule(
+                rule_id="DQ-003",
+                name="Duplicate Product Detection",
+                description="Duplicate product business keys.",
+                category="Uniqueness",
+                severity="CRITICAL",
+                script_name="003_check_duplicate_products.sql",
+            )
+        )
 
-        ]
+        self.registry.register(
+            QualityRule(
+                rule_id="DQ-004",
+                name="Orphan Fact Sales Detection",
+                description="Fact table referential integrity.",
+                category="Referential Integrity",
+                severity="CRITICAL",
+                script_name="004_check_orphan_fact_sales.sql",
+            )
+        )
+
+        self.registry.register(
+            QualityRule(
+                rule_id="DQ-005",
+                name="Negative Payment Detection",
+                description="Detect negative payment values.",
+                category="Business Rule",
+                severity="CRITICAL",
+                script_name="005_check_negative_payment.sql",
+            )
+        )
 
     # -------------------------------------------------------------------------
 
@@ -135,7 +146,7 @@ class RulesEngine:
         Registered quality rules.
         """
 
-        return self._rules.copy()
+        return self.registry.rules
 
     # -------------------------------------------------------------------------
 
@@ -157,49 +168,77 @@ class RulesEngine:
 
         results: list[QualityCheckResult] = []
 
-        for rule in self._rules:
+        for rule in self.registry.enabled_rules():
 
             start = perf_counter()
 
-            #
-            # Placeholder execution.
-            #
+            script_path = self._quality_directory / rule.script_name
 
-            passed = True
+            execution = self.executor.execute(
 
-            rows_checked = 0
+                script_path=script_path,
 
-            rows_failed = 0
+                script_name=rule.script_name,
+
+            )
 
             elapsed = perf_counter() - start
 
+            passed = execution.success
+
+            rows_checked = execution.rows_processed
+
+            rows_failed = 0
+
+            message = "Rule executed successfully."
+
+            if execution.query_result is not None:
+
+                passed = execution.query_result["passed"]
+
+                rows_checked = execution.query_result["rows_checked"]
+
+                rows_failed = execution.query_result["rows_failed"]
+
+                message = execution.query_result["message"]
+
             logger.info(
 
-                "Rule %-25s PASS",
+                "Rule %-35s %s",
 
                 rule.name,
 
-            )
-
-            results.append(
-
-                QualityCheckResult(
-
-                    rule_name=rule.name,
-
-                    passed=passed,
-
-                    rows_checked=rows_checked,
-
-                    rows_failed=rows_failed,
-
-                    execution_time_seconds=elapsed,
-
-                    message="OK",
-
-                )
+                "PASS" if passed else "FAIL",
 
             )
+
+            result = QualityCheckResult(
+
+                rule_id=rule.rule_id,
+
+                rule_name=rule.name,
+
+                category=rule.category,
+
+                severity=rule.severity,
+
+                passed=passed,
+
+                rows_checked=rows_checked,
+
+                rows_failed=rows_failed,
+
+                execution_time_seconds=elapsed,
+
+                quality_score=execution.query_result["quality_score"],
+
+                message=message,
+
+            )
+
+            results.append(result)
+
+            self._save_history(result)
 
         logger.info("=" * 60)
         logger.info(
@@ -215,12 +254,70 @@ class RulesEngine:
 
     # -------------------------------------------------------------------------
 
+    def _save_history(
+        self,
+        result: QualityCheckResult,
+    ) -> None:
+
+        sql = """
+            INSERT INTO monitoring.quality_rule_history
+            (
+                execution_id,
+                rule_id,
+                rule_name,
+                category,
+                severity,
+                passed,
+                rows_checked,
+                rows_failed,
+                quality_score,
+                execution_time_ms,
+                message
+            )
+            VALUES
+            (
+                :execution_id,
+                :rule_id,
+                :rule_name,
+                :category,
+                :severity,
+                :passed,
+                :rows_checked,
+                :rows_failed,
+                :quality_score,
+                :execution_time_ms,
+                :message
+            )
+        """
+
+        with self.executor.engine.begin() as connection:
+
+            connection.execute(
+
+                text(sql),
+
+                {
+                    "execution_id": uuid4(),
+                    "rule_id": result.rule_id,
+                    "rule_name": result.rule_name,
+                    "category": result.category,
+                    "severity": result.severity,
+                    "passed": result.passed,
+                    "rows_checked": result.rows_checked,
+                    "rows_failed": result.rows_failed,
+                    "quality_score": result.quality_score,
+                    "execution_time_ms": result.execution_time_seconds * 1000,
+                    "message": result.message,
+                },
+
+            )
+
     def summary(self) -> dict[str, int]:
         """
         Return rule summary.
         """
 
-        total = len(self._rules)
+        total = len(self.registry)
 
         return {
 
@@ -230,7 +327,7 @@ class RulesEngine:
 
                 rule.enabled
 
-                for rule in self._rules
+                for rule in self.registry.rules
 
             ),
 
@@ -238,7 +335,7 @@ class RulesEngine:
 
                 not rule.enabled
 
-                for rule in self._rules
+                for rule in self.registry.rules
 
             ),
 

@@ -71,6 +71,13 @@ from src.quality.registry import QualityRegistry
 from src.runtime.lifecycle import RuntimeLifecycle
 from src.runtime.manager import RuntimeManager
 
+from src.quality.rules import RulesEngine
+from src.quality.scorecard import ScorecardEngine
+from src.quality.registry import (
+    QualityRegistry,
+    QualityRuleRegistry,
+)
+
 
 # =============================================================================
 # Service Container
@@ -153,6 +160,12 @@ class ServiceContainer:
         self._quality_validator = None
 
         self._quality_manager = None
+
+        self._quality_rule_registry = None
+
+        self._rules_engine = None
+
+        self._scorecard_engine = None
 
 
         self._etl_manager = None
@@ -498,6 +511,39 @@ class ServiceContainer:
 
 
     @property
+    def quality_rule_registry(self) -> QualityRuleRegistry:
+    
+        if self._quality_rule_registry is None:
+    
+            self._quality_rule_registry = QualityRuleRegistry()
+    
+        return self._quality_rule_registry
+    
+    @property
+    def rules_engine(self) -> RulesEngine:
+    
+        if self._rules_engine is None:
+    
+            self._rules_engine = RulesEngine()
+    
+        return self._rules_engine
+    
+    @property
+    def scorecard_engine(self) -> ScorecardEngine:
+    
+        if self._scorecard_engine is None:
+    
+            self._scorecard_engine = ScorecardEngine(
+    
+                rules_engine=self.rules_engine,
+    
+            )
+    
+        return self._scorecard_engine
+    
+
+
+    @property
     def quality_manager(self) -> QualityManager:
         """
         Shared Quality Manager.
@@ -517,10 +563,47 @@ class ServiceContainer:
 
                 monitoring=self.monitoring_manager,
 
+                rules_engine=self.rules_engine,
+
             )
 
         return self._quality_manager
 
+    @property
+    def quality_rule_registry(self) -> QualityRuleRegistry:
+        
+        if self._quality_rule_registry is None:
+        
+            self._quality_rule_registry = QualityRuleRegistry()
+        
+        return self._quality_rule_registry
+        
+    @property
+    def rules_engine(self) -> RulesEngine:
+        
+        if self._rules_engine is None:
+        
+            self._rules_engine = RulesEngine(
+
+                executor=self.database_executor,
+
+            )
+        
+        return self._rules_engine
+        
+    @property
+    def scorecard_engine(self) -> ScorecardEngine:
+        
+        if self._scorecard_engine is None:
+        
+            self._scorecard_engine = ScorecardEngine(
+        
+                rules_engine=self.rules_engine,
+        
+            )
+        
+        return self._scorecard_engine
+    
     # =========================================================================
     # Future Platform Services
     # =========================================================================
@@ -651,6 +734,15 @@ class ServiceContainer:
             "quality_validator": self._quality_validator is not None,
 
             "quality_manager": self._quality_manager is not None,
+
+            "quality_rule_registry":
+                self._quality_rule_registry is not None,
+
+            "rules_engine":
+                self._rules_engine is not None,
+
+            "scorecard_engine":
+                self._scorecard_engine is not None,
 
             #
             # Extension Services

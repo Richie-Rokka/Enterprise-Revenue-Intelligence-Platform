@@ -40,16 +40,15 @@ class WarehouseStage(Stage):
 
     description = "Build Enterprise Data Warehouse"
 
-    def __init__(self) -> None:
-
-        self.manager = WarehouseManager()
-
+    
     def execute(
         self,
         context: ExecutionContext
     ) -> StageResult:
 
-        deployment = self.manager.rebuild()
+        manager = context.services.warehouse_manager
+
+        deployment = manager.rebuild()
 
         result = StageResult(
             stage_name=self.name,
@@ -79,7 +78,7 @@ class WarehouseStage(Stage):
 
         result.add_metadata(
             "warehouse_status",
-            self.manager.status()
+            manager.status()
         )
 
         return result

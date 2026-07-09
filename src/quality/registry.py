@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
+from src.quality.models import QualityRule
 from src.observability import get_logger
 
 
@@ -61,6 +62,76 @@ class QualityAsset:
 
         return self.path.name
 
+
+# =============================================================================
+# Quality Rule Registry
+# =============================================================================
+
+class QualityRuleRegistry:
+    """
+    Enterprise Data Quality Rule Registry.
+    """
+
+    def __init__(self) -> None:
+
+        self._rules: list[QualityRule] = []
+
+    # -----------------------------------------------------------------
+
+    def register(
+        self,
+        rule: QualityRule,
+    ) -> None:
+
+        self._rules.append(rule)
+
+    # -----------------------------------------------------------------
+
+    @property
+    def rules(self) -> list[QualityRule]:
+
+        return self._rules.copy()
+
+    # -----------------------------------------------------------------
+
+    def enabled_rules(self) -> list[QualityRule]:
+
+        return [
+
+            rule
+
+            for rule in self._rules
+
+            if rule.enabled
+
+        ]
+
+    # -----------------------------------------------------------------
+
+    def find(
+        self,
+        rule_id: str,
+    ) -> QualityRule | None:
+
+        for rule in self._rules:
+
+            if rule.rule_id == rule_id:
+
+                return rule
+
+        return None
+
+    # -----------------------------------------------------------------
+
+    def __iter__(self):
+
+        return iter(self._rules)
+
+    # -----------------------------------------------------------------
+
+    def __len__(self):
+
+        return len(self._rules)
 
 # =============================================================================
 # Quality Registry

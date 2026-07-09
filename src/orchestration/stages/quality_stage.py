@@ -3,29 +3,29 @@
 Enterprise Revenue Intelligence Platform (ERIP)
 ===============================================================================
 
-Module      : semantic_stage.py
+Module      : quality_stage.py
 Package     : src.orchestration.stages
-Purpose     : Semantic Layer Pipeline Stage
+Purpose     : Quality Pipeline Stage
 Author      : ERIP
-Version     : 2.0.0
+Version     : 4.0.0
 
 Description
 -----------
-Pipeline stage responsible for deploying and validating the Enterprise
-Semantic Layer.
+Pipeline adapter for the Enterprise Data Quality Framework.
 
 Responsibilities
 ----------------
-- Execute SemanticManager
+- Execute QualityManager
+- Convert QualityValidationResult into StageResult
+- Publish execution metadata
 - Return standardized StageResult
-- Report deployment metrics
 
 ===============================================================================
 """
 
 from __future__ import annotations
 
-from src.semantic.manager import SemanticManager
+from src.quality.manager import QualityManager
 
 from src.orchestration.execution_context import ExecutionContext
 from src.orchestration.stage import Stage
@@ -35,21 +35,30 @@ from src.orchestration.stage_result import (
 )
 
 
-class SemanticStage(Stage):
+class QualityStage(Stage):
     """
-    Pipeline stage responsible for semantic layer deployment.
+    Pipeline adapter for the Enterprise Data Quality Framework.
     """
 
-    name = "semantic"
+    name = "quality"
 
-    # -------------------------------------------------------------------------
+    description = "Execute Enterprise Data Quality Framework"
+
+    # =========================================================================
+    # Construction
+    # =========================================================================
+
+    
+    # =========================================================================
+    # Lifecycle
+    # =========================================================================
 
     def validate(
         self,
         context: ExecutionContext,
     ) -> bool:
         """
-        Validate stage prerequisites.
+        Validate Quality stage prerequisites.
         """
 
         return True
@@ -61,18 +70,18 @@ class SemanticStage(Stage):
         context: ExecutionContext,
     ) -> StageResult:
         """
-        Execute semantic deployment.
+        Execute the Quality Framework.
         """
 
         context.set_stage(self.name)
 
-        manager = context.services.semantic_manager
+        manager = context.services.quality_manager
 
-        deployment = manager.rebuild()
+        validation = manager.validate()
 
         status = (
             StageStatus.SUCCESS
-            if deployment.success
+            if validation.passed
             else StageStatus.FAILED
         )
 
@@ -82,29 +91,34 @@ class SemanticStage(Stage):
 
             status=status,
 
-            rows_processed=deployment.scripts_executed,
+            rows_processed=0,
 
-            rows_loaded=deployment.scripts_executed,
+            rows_loaded=0,
 
             warnings=0,
 
-            errors=0 if deployment.success else 1,
+            errors=validation.failures,
 
             message=(
-                "Semantic layer deployed successfully."
-                if deployment.success
-                else "Semantic layer deployment failed."
+                "Quality validation completed successfully."
+                if validation.passed
+                else "Quality validation failed."
             ),
         )
 
         result.add_metadata(
-            "validation_passed",
-            deployment.validation_passed,
+            "framework_status",
+            manager.status(),
         )
 
         result.add_metadata(
-            "scripts_executed",
-            deployment.scripts_executed,
+            "checks_performed",
+            validation.checks_performed,
+        )
+
+        result.add_metadata(
+            "failures",
+            validation.failures,
         )
 
         return result
@@ -117,7 +131,7 @@ class SemanticStage(Stage):
     ) -> None:
 
         context.logger.info(
-            "Starting Semantic Stage..."
+            "Starting Quality Stage..."
         )
 
     # -------------------------------------------------------------------------
@@ -129,7 +143,7 @@ class SemanticStage(Stage):
     ) -> None:
 
         context.logger.info(
-            "Semantic Stage Completed."
+            "Quality Stage Completed."
         )
 
     # -------------------------------------------------------------------------
