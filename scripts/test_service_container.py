@@ -118,6 +118,8 @@ def main() -> None:
     print("=" * 70)
     print()
 
+    print()
+
     print("Quality Manager")
     print(services.quality_manager)
     print()
@@ -128,6 +130,16 @@ def main() -> None:
 
     print("Quality Validator")
     print(services.quality_validator)
+
+    print("=" * 70)
+    print("ETL Framework")
+    print("=" * 70)
+    
+    print()
+    
+    print("ETL Manager")
+    
+    print(services.etl_manager)
 
     # ------------------------------------------------------------------
     # Diagnostics

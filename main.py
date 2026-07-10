@@ -6,7 +6,7 @@ Enterprise Revenue Intelligence Platform (ERIP)
 Module      : main.py
 Purpose     : Enterprise Platform Entry Point
 Author      : ERIP
-Version     : 3.0.0
+Version     : 3.1.0
 
 Description
 -----------
@@ -16,8 +16,8 @@ Responsibilities
 ----------------
 • Bootstrap the Enterprise Platform
 • Initialize platform services
-• Perform platform health checks
-• Execute the enterprise pipeline
+• Execute the Enterprise Pipeline
+• Perform post-execution health checks
 • Shutdown platform gracefully
 • Return appropriate process exit codes
 
@@ -63,35 +63,35 @@ def main() -> int:
         platform.initialize()
 
         # -----------------------------------------------------------------
-        # Platform Health Check
-        # -----------------------------------------------------------------
-
-        health = platform.health()
-
-        if health.overall != "HEALTHY":
-
-            print()
-
-            print("Platform health check failed.")
-
-            print()
-
-            print(health)
-
-            return 2
-
-        # -----------------------------------------------------------------
         # Execute Enterprise Platform
         # -----------------------------------------------------------------
 
         platform.run()
+
+        # -----------------------------------------------------------------
+        # Post-Execution Health Check
+        # -----------------------------------------------------------------
+
+        health = platform.health()
+
+        print()
+        print("=" * 70)
+        print("Enterprise Platform Health")
+        print("=" * 70)
+        print(health)
+        print()
+
+        if health.overall != "HEALTHY":
+
+            print("WARNING: Platform completed but health is UNHEALTHY.")
+
+            return 2
 
         return 0
 
     except KeyboardInterrupt:
 
         print()
-
         print("Platform execution cancelled by user.")
 
         return 130
@@ -99,7 +99,6 @@ def main() -> int:
     except Exception as error:
 
         print()
-
         print(f"Platform execution failed: {error}")
 
         return 1

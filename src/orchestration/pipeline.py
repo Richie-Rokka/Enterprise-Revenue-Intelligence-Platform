@@ -168,6 +168,12 @@ class Pipeline:
                     self.context,
                 )
 
+                self.logger.info(
+                    "Stage [%s] returned status=%s",
+                    stage.name,
+                    result.status,
+                )
+
                 result.complete()
 
                 stage.after_execute(

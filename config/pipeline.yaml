@@ -10,7 +10,13 @@ pipeline:
 
     - warehouse
 
+    - etl
+
     - semantic
+
+    - quality
+
+    - monitoring
 
   execution:
 

@@ -226,22 +226,6 @@ class Platform:
             )
 
             # ---------------------------------------------------------
-            # Validate Platform
-            # ---------------------------------------------------------
-
-                validation = self.validate()
-
-                if not validation.passed:
-
-                    raise RuntimeError(
-
-                        "Platform validation failed."
-
-                    )
-
-                logger.info("Platform Validation Successful")
-
-            # ---------------------------------------------------------
             # Register Pipeline Stages
             # ---------------------------------------------------------
 
@@ -256,6 +240,22 @@ class Platform:
                 pipeline = Pipeline(context)
 
                 results = pipeline.run()
+
+            # ---------------------------------------------------------
+            # Validate Platform
+            # ---------------------------------------------------------
+            
+                validation = self.validate()
+            
+                if not validation.passed:
+            
+                    raise RuntimeError(
+            
+                        "Platform validation failed."
+            
+                    )
+            
+                logger.info("Platform Validation Successful")
 
             # ---------------------------------------------------------
             # Platform Summary

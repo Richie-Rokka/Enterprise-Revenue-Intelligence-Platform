@@ -17,6 +17,7 @@ from src.orchestration.stages.warehouse_stage import WarehouseStage
 from src.orchestration.stages.semantic_stage import SemanticStage
 from src.orchestration.stages.monitoring_stage import MonitoringStage
 from src.orchestration.stages.quality_stage import QualityStage
+from src.orchestration.stages.etl_stage import ETLStage
 
 
 def register_stages() -> None:
@@ -30,6 +31,11 @@ def register_stages() -> None:
     StageRegistry.register(
         WarehouseStage.name,
         WarehouseStage,
+    )
+
+    StageRegistry.register(
+        ETLStage.name,
+        ETLStage,
     )
 
     StageRegistry.register(

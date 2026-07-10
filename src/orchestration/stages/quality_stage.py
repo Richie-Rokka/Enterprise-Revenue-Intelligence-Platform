@@ -97,7 +97,7 @@ class QualityStage(Stage):
 
             warnings=0,
 
-            errors=validation.failures,
+            errors=len(validation.failures),
 
             message=(
                 "Quality validation completed successfully."

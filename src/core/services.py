@@ -72,6 +72,7 @@ from src.runtime.lifecycle import RuntimeLifecycle
 from src.runtime.manager import RuntimeManager
 
 from src.database.health import DatabaseHealth
+from src.etl.manager import ETLManager
 
 from src.quality.rules import RulesEngine
 from src.quality.scorecard import ScorecardEngine
@@ -587,7 +588,14 @@ class ServiceContainer:
     # =========================================================================
 
     @property
-    def etl_manager(self):
+    def etl_manager(self) -> ETLManager:
+        """
+        Shared ETL Manager.
+        """
+
+        if self._etl_manager is None:
+
+            self._etl_manager = ETLManager()
 
         return self._etl_manager
     

@@ -68,7 +68,7 @@ class SemanticStage(Stage):
 
         manager = context.services.semantic_manager
 
-        deployment = manager.rebuild()
+        deployment = manager.deploy()
 
         status = (
             StageStatus.SUCCESS
