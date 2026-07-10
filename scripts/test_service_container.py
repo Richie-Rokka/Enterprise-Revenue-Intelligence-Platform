@@ -57,6 +57,11 @@ def main() -> None:
     print(services.database_executor)
     print()
 
+    
+    print("Database Health")
+    print(services.database_health.check())
+    print()   
+
     # ------------------------------------------------------------------
     # Warehouse
     # ------------------------------------------------------------------
@@ -84,12 +89,10 @@ def main() -> None:
     print("=" * 70)
     print("Semantic Framework")
     print("=" * 70)
-
     print()
 
     print("Semantic Manager")
     print(services.semantic_manager)
-
     print()
 
     print("Semantic Validator")
@@ -104,7 +107,6 @@ def main() -> None:
 
     print("Monitoring Manager")
     print(services.monitoring_manager)
-
     print()
 
     print("Monitoring Validator")
@@ -118,7 +120,10 @@ def main() -> None:
 
     print("Quality Manager")
     print(services.quality_manager)
+    print()
 
+    print("Scorecard Engine")
+    print(services.scorecard_engine)
     print()
 
     print("Quality Validator")

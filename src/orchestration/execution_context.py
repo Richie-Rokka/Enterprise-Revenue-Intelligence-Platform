@@ -71,6 +71,20 @@ class ExecutionContext:
 
     current_stage: str = "Initialization"
 
+    total_stages: int = 0
+
+    completed_stages: int = 0
+
+    successful_stages: int = 0
+
+    failed_stages: int = 0
+
+    skipped_stages: int = 0
+
+    current_stage_index: int = 0
+
+    status: str = "INITIALIZED"
+
     # -------------------------------------------------------------------------
     # Infrastructure
     # -------------------------------------------------------------------------
@@ -94,7 +108,7 @@ class ExecutionContext:
 
     rows_processed: int = 0
     rows_loaded: int = 0
-
+    execution_seconds: float = 0.0
     warnings: int = 0
     errors: int = 0
 
@@ -113,6 +127,45 @@ class ExecutionContext:
         Update the current pipeline stage.
         """
         self.current_stage = stage_name
+
+    def set_total_stages(self, total: int) -> None:
+        """
+        Set the total number of pipeline stages.
+        """
+        self.total_stages = total
+
+
+    def complete_stage(self) -> None:
+        """
+        Increment completed stage count.
+        """
+        self.completed_stages += 1
+
+    def add_successful_stage(self) -> None:
+        """
+        Increment successful stage count.
+        """
+        self.successful_stages += 1
+
+
+    def add_failed_stage(self) -> None:
+        """
+        Increment failed stage count.
+        """
+        self.failed_stages += 1
+
+    def add_skipped_stage(self) -> None:
+        """
+        Increment skipped stage count.
+        """
+        self.skipped_stages += 1
+
+
+    def set_status(self, status: str) -> None:
+        """
+        Update execution status.
+        """
+        self.status = status
 
     def add_rows_processed(self, count: int) -> None:
         """

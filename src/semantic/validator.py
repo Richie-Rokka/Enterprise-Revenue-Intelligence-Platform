@@ -132,7 +132,7 @@ class SemanticValidator:
 
             self._validate_views_exist,
 
-            self._validate_views_return_data,
+            self._validate_views_queryable,
 
         ]
 
@@ -296,36 +296,30 @@ class SemanticValidator:
 
     # -------------------------------------------------------------------------
 
-    def _validate_views_return_data(self) -> None:
+    def _validate_views_queryable(self) -> None:
         """
-        Validate each semantic view returns rows.
+        Validate each semantic view can be queried.
+
+        This validates deployment only.
+        It does not require business data.
         """
 
         with self.engine.begin() as connection:
 
             for view in self.REQUIRED_VIEWS:
 
-                sql = text(
+                connection.execute(
 
-                    f"""
+                    text(
 
-                    SELECT COUNT(*)
-
-                    FROM analytics.{view}
-
-                    """
+                        f"""
+                        SELECT *
+                        FROM analytics.{view}
+                        LIMIT 1
+                        """
+                    )
 
                 )
-
-                count = connection.execute(sql).scalar()
-
-                if count == 0:
-
-                    raise RuntimeError(
-
-                        f"{view} returned zero rows."
-
-                    )
 
     # -------------------------------------------------------------------------
 

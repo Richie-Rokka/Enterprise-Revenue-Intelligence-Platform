@@ -71,6 +71,8 @@ from src.quality.registry import QualityRegistry
 from src.runtime.lifecycle import RuntimeLifecycle
 from src.runtime.manager import RuntimeManager
 
+from src.database.health import DatabaseHealth
+
 from src.quality.rules import RulesEngine
 from src.quality.scorecard import ScorecardEngine
 from src.quality.registry import (
@@ -108,6 +110,8 @@ class ServiceContainer:
         self._logger = None
 
         self._database_executor = None
+
+        self._database_health = None
 
         #
         # Runtime Framework
@@ -160,8 +164,6 @@ class ServiceContainer:
         self._quality_validator = None
 
         self._quality_manager = None
-
-        self._quality_rule_registry = None
 
         self._rules_engine = None
 
@@ -242,6 +244,23 @@ class ServiceContainer:
         return self._database_executor
 
 
+    @property
+    def database_health(self) -> DatabaseHealth:
+        """
+        Shared Database Health service.
+        """
+
+        if self._database_health is None:
+
+            self._database_health = DatabaseHealth(
+
+                engine=self.engine,
+
+            )
+
+        return self._database_health
+
+    
     # =========================================================================
     # Runtime Framework
     # =========================================================================
@@ -511,39 +530,6 @@ class ServiceContainer:
 
 
     @property
-    def quality_rule_registry(self) -> QualityRuleRegistry:
-    
-        if self._quality_rule_registry is None:
-    
-            self._quality_rule_registry = QualityRuleRegistry()
-    
-        return self._quality_rule_registry
-    
-    @property
-    def rules_engine(self) -> RulesEngine:
-    
-        if self._rules_engine is None:
-    
-            self._rules_engine = RulesEngine()
-    
-        return self._rules_engine
-    
-    @property
-    def scorecard_engine(self) -> ScorecardEngine:
-    
-        if self._scorecard_engine is None:
-    
-            self._scorecard_engine = ScorecardEngine(
-    
-                rules_engine=self.rules_engine,
-    
-            )
-    
-        return self._scorecard_engine
-    
-
-
-    @property
     def quality_manager(self) -> QualityManager:
         """
         Shared Quality Manager.
@@ -569,15 +555,7 @@ class ServiceContainer:
 
         return self._quality_manager
 
-    @property
-    def quality_rule_registry(self) -> QualityRuleRegistry:
-        
-        if self._quality_rule_registry is None:
-        
-            self._quality_rule_registry = QualityRuleRegistry()
-        
-        return self._quality_rule_registry
-        
+           
     @property
     def rules_engine(self) -> RulesEngine:
         
@@ -687,6 +665,8 @@ class ServiceContainer:
 
             "database_executor": self._database_executor is not None,
 
+            "database_health": self._database_health is not None,
+
             #
             # Runtime
             #
@@ -735,9 +715,6 @@ class ServiceContainer:
 
             "quality_manager": self._quality_manager is not None,
 
-            "quality_rule_registry":
-                self._quality_rule_registry is not None,
-
             "rules_engine":
                 self._rules_engine is not None,
 
@@ -750,14 +727,5 @@ class ServiceContainer:
 
             "etl_manager": self._etl_manager is not None,
                      
-            "metrics": self._metrics is not None,
-
-            "notifier": self._notifier is not None,
-
-            "cache": self._cache is not None,
-
-            "scheduler": self._scheduler is not None,
-
-            "secrets": self._secrets is not None,
-
+            
         }

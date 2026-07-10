@@ -1,59 +1,44 @@
-"""
-Enterprise Revenue Intelligence Platform (ERIP)
-
-Database Health Check
-"""
-
 from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
-from src.database.connection import get_engine
 
-
-def check_database_health():
+class DatabaseHealth:
     """
-    Perform a database health check.
-
-    Returns
-    -------
-    dict
-        Database health information.
+    Enterprise Database Health Service.
     """
 
-    engine = get_engine()
+    def __init__(self, engine: Engine) -> None:
 
-    with engine.connect() as connection:
+        self._engine = engine
 
-        version = connection.execute(
+    def status(self) -> str:
 
-            text(
-                "SELECT version();"
-            )
+        return "READY" if self.check()["status"] == "Healthy" else "FAILED"
 
-        ).scalar()
+    def check(self) -> dict:
 
-        database = connection.execute(
+        with self._engine.connect() as connection:
 
-            text(
-                "SELECT current_database();"
-            )
+            version = connection.execute(
+                text("SELECT version();")
+            ).scalar()
 
-        ).scalar()
+            database = connection.execute(
+                text("SELECT current_database();")
+            ).scalar()
 
-        user = connection.execute(
+            user = connection.execute(
+                text("SELECT current_user;")
+            ).scalar()
 
-            text(
-                "SELECT current_user;"
-            )
+        return {
 
-        ).scalar()
+            "status": "Healthy",
 
-    return {
+            "database": database,
 
-        "status": "Healthy",
+            "user": user,
 
-        "database": database,
+            "version": version,
 
-        "user": user,
-
-        "version": version,
-    }
+        }

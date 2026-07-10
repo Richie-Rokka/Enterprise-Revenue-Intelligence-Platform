@@ -4,9 +4,9 @@ Enterprise Revenue Intelligence Platform (ERIP)
 ===============================================================================
 
 Module      : main.py
-Purpose     : Application Entry Point
+Purpose     : Enterprise Platform Entry Point
 Author      : ERIP
-Version     : 2.1.0
+Version     : 3.0.0
 
 Description
 -----------
@@ -14,13 +14,17 @@ Application entry point for the Enterprise Revenue Intelligence Platform.
 
 Responsibilities
 ----------------
-- Bootstrap the platform
-- Execute the platform lifecycle
-- Return appropriate process exit codes
+• Bootstrap the Enterprise Platform
+• Initialize platform services
+• Perform platform health checks
+• Execute the enterprise pipeline
+• Shutdown platform gracefully
+• Return appropriate process exit codes
 
 Notes
 -----
 This module intentionally contains no business logic.
+
 All orchestration is delegated to the Platform class.
 
 ===============================================================================
@@ -33,6 +37,11 @@ import sys
 from src.core.platform import Platform
 
 
+# =============================================================================
+# Main
+# =============================================================================
+
+
 def main() -> int:
     """
     Execute the Enterprise Revenue Intelligence Platform.
@@ -43,9 +52,37 @@ def main() -> int:
         Process exit code.
     """
 
+    platform = Platform()
+
     try:
 
-        platform = Platform()
+        # -----------------------------------------------------------------
+        # Platform Initialization
+        # -----------------------------------------------------------------
+
+        platform.initialize()
+
+        # -----------------------------------------------------------------
+        # Platform Health Check
+        # -----------------------------------------------------------------
+
+        health = platform.health()
+
+        if health.overall != "HEALTHY":
+
+            print()
+
+            print("Platform health check failed.")
+
+            print()
+
+            print(health)
+
+            return 2
+
+        # -----------------------------------------------------------------
+        # Execute Enterprise Platform
+        # -----------------------------------------------------------------
 
         platform.run()
 
@@ -53,16 +90,34 @@ def main() -> int:
 
     except KeyboardInterrupt:
 
-        print("\nPlatform execution cancelled by user.")
+        print()
+
+        print("Platform execution cancelled by user.")
 
         return 130
 
     except Exception as error:
 
-        print(f"\nPlatform execution failed: {error}")
+        print()
+
+        print(f"Platform execution failed: {error}")
 
         return 1
 
+    finally:
+
+        try:
+
+            platform.shutdown()
+
+        except Exception:
+
+            pass
+
+
+# =============================================================================
+# Entry Point
+# =============================================================================
 
 if __name__ == "__main__":
 

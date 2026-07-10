@@ -10,11 +10,11 @@ from .connection import (
 )
 
 from .health import (
-    check_database_health,
+    DatabaseHealth,
 )
 
 __all__ = [
     "get_engine",
     "get_connection",
-    "check_database_health",
+    "DatabaseHealth",
 ]
