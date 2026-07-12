@@ -1,25 +1,33 @@
 """
 ===============================================================================
-Enterprise Revenue Intelligence Platform (ERIP)
+
+Enterprise Orders Loader.
+
+Responsibilities
+----------------
+• Load validated Orders data into staging.orders
+• Execute PostgreSQL COPY
+• Manage database transactions
+• Return LoadResult
+
+This loader represents the canonical "Load" stage for
+the Orders ETL pipeline.
+
 ===============================================================================
 
 Module      : load_orders.py
 Package     : src.etl.load
 Purpose     : Load Orders Data into staging.orders
 Author      : ERIP
-Version     : 3.1.0
+Version     : 3.3.0
 ===============================================================================
 """
 
 from __future__ import annotations
 
-import pandas as pd
-
 from src.etl.context import ETLContext
 from src.etl.load.base_loader import BaseLoader
-from src.etl.transform.sales_order_transformer import (
-    SalesOrderTransformer,
-)
+
 
 
 class OrdersLoader(BaseLoader):
@@ -27,7 +35,10 @@ class OrdersLoader(BaseLoader):
     Enterprise Orders Loader.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        context: ETLContext | None = None,
+    ) -> None:
 
         super().__init__(
 
@@ -55,80 +66,6 @@ class OrdersLoader(BaseLoader):
 
             ],
 
-        )
-
-        self.context = ETLContext(
-
-            pipeline_name="Orders Pipeline",
-
-            source_name="Olist Orders",
-
-            source_type="CSV",
-
-            source_path=self.source_file,
-
-            target_schema="staging",
-
-            target_table="orders",
+            context=context,
 
         )
-
-        self.transformer = SalesOrderTransformer(
-
-            self.context
-
-        )
-
-    # ---------------------------------------------------------------------
-
-    def clean(
-
-        self,
-
-        dataframe: pd.DataFrame,
-
-    ) -> pd.DataFrame:
-        """
-        Dataset-specific cleaning.
-
-        Uses the BaseLoader implementation.
-        """
-
-        return super().clean(
-
-            dataframe
-
-        )
-
-    # ---------------------------------------------------------------------
-
-    def before_load(
-
-        self,
-
-        dataframe: pd.DataFrame,
-
-    ) -> pd.DataFrame:
-        """
-        Execute business transformations before loading.
-        """
-
-        return self.transformer.transform(
-
-            dataframe
-
-        )
-
-
-# =============================================================================
-# Standalone Execution
-# =============================================================================
-
-def main() -> None:
-
-    OrdersLoader().run()
-
-
-if __name__ == "__main__":
-
-    main()

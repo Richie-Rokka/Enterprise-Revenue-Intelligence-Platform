@@ -93,6 +93,8 @@ class ETLContext:
 
     status: str = "RUNNING"
 
+    completed: bool = False
+
     batch_size: int = 10_000
 
     # -------------------------------------------------------------------------
@@ -108,6 +110,8 @@ class ETLContext:
     rows_loaded: int = 0
 
     rows_failed: int = 0
+
+    datasets_processed: int = 0
 
     # -------------------------------------------------------------------------
     # Runtime Messages
@@ -184,6 +188,10 @@ class ETLContext:
 
         self.rows_failed += count
 
+    def increment_datasets_processed(self) -> None:
+
+        self.datasets_processed += 1
+
     # =========================================================================
     # Metadata
     # =========================================================================
@@ -195,6 +203,8 @@ class ETLContext:
     ) -> None:
 
         self.metadata[key] = value
+
+        return value
 
     # =========================================================================
     # Runtime Messages
@@ -235,6 +245,8 @@ class ETLContext:
 
             self.status = "SUCCESS"
 
+        self.completed = True
+
     # -------------------------------------------------------------------------
 
     def mark_failed(
@@ -250,6 +262,8 @@ class ETLContext:
         self.end_time = datetime.now(
             timezone.utc
         )
+
+        self.completed = True
 
     # =========================================================================
     # Properties

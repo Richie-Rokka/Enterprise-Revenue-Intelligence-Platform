@@ -1,25 +1,30 @@
 """
 ===============================================================================
-Enterprise Revenue Intelligence Platform (ERIP)
+Enterprise Order Reviews Loader.
+
+Responsibilities
+----------------
+• Load validated Order Reviews data into staging.order_reviews
+• Execute PostgreSQL COPY
+• Manage database transactions
+• Return LoadResult
+
+This loader represents the canonical "Load" stage for
+the Order Reviews ETL pipeline.
 ===============================================================================
 
 Module      : load_order_reviews.py
 Package     : src.etl.load
 Purpose     : Load Order Reviews Data into staging.order_reviews
 Author      : ERIP
-Version     : 3.2.0
+Version     : 3.3.0
 ===============================================================================
 """
 
 from __future__ import annotations
 
-import pandas as pd
-
 from src.etl.context import ETLContext
 from src.etl.load.base_loader import BaseLoader
-from src.etl.transform.review_transformer import (
-    ReviewTransformer,
-)
 
 
 class OrderReviewsLoader(BaseLoader):
@@ -27,7 +32,10 @@ class OrderReviewsLoader(BaseLoader):
     Enterprise Order Reviews Loader.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        context: ETLContext | None = None,
+    ) -> None:
 
         super().__init__(
 
@@ -49,74 +57,6 @@ class OrderReviewsLoader(BaseLoader):
 
             ],
 
-        )
-
-        self.context = ETLContext(
-
-            pipeline_name="Order Reviews Pipeline",
-
-            source_name="Olist Order Reviews",
-
-            source_type="CSV",
-
-            source_path=self.source_file,
-
-            target_schema="staging",
-
-            target_table="order_reviews",
+            context=context,
 
         )
-
-        self.transformer = ReviewTransformer(
-
-            self.context
-
-        )
-
-    # -----------------------------------------------------------------
-
-    def clean(
-        self,
-        dataframe: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """
-        Dataset-specific cleaning.
-
-        Uses the BaseLoader implementation.
-        """
-
-        return super().clean(
-
-            dataframe
-
-        )
-
-    # -----------------------------------------------------------------
-
-    def before_load(
-        self,
-        dataframe: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """
-        Execute review business transformations.
-        """
-
-        return self.transformer.transform(
-
-            dataframe
-
-        )
-
-
-# =============================================================================
-# Standalone Execution
-# =============================================================================
-
-def main() -> None:
-
-    OrderReviewsLoader().run()
-
-
-if __name__ == "__main__":
-
-    main()

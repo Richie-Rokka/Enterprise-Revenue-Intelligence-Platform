@@ -1,25 +1,31 @@
 """
 ===============================================================================
-Enterprise Revenue Intelligence Platform (ERIP)
+Enterprise Order Items Loader.
+
+Responsibilities
+----------------
+• Load validated Order Items data into staging.order_items
+• Execute PostgreSQL COPY
+• Manage database transactions
+• Return LoadResult
+
+This loader represents the canonical "Load" stage for
+the Order Items ETL pipeline.
 ===============================================================================
 
 Module      : load_order_items.py
 Package     : src.etl.load
 Purpose     : Load Order Items Data into staging.order_items
 Author      : ERIP
-Version     : 3.2.0
+Version     : 3.3.0
 ===============================================================================
 """
 
 from __future__ import annotations
 
-import pandas as pd
-
 from src.etl.context import ETLContext
 from src.etl.load.base_loader import BaseLoader
-from src.etl.transform.order_items_transformer import (
-    OrderItemsTransformer,
-)
+
 
 
 class OrderItemsLoader(BaseLoader):
@@ -27,7 +33,10 @@ class OrderItemsLoader(BaseLoader):
     Enterprise Order Items Loader.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        context: ETLContext | None = None,
+    ) -> None:
 
         super().__init__(
 
@@ -53,74 +62,6 @@ class OrderItemsLoader(BaseLoader):
 
             ],
 
-        )
-
-        self.context = ETLContext(
-
-            pipeline_name="Order Items Pipeline",
-
-            source_name="Olist Order Items",
-
-            source_type="CSV",
-
-            source_path=self.source_file,
-
-            target_schema="staging",
-
-            target_table="order_items",
+            context=context,
 
         )
-
-        self.transformer = OrderItemsTransformer(
-
-            self.context
-
-        )
-
-    # -----------------------------------------------------------------
-
-    def clean(
-        self,
-        dataframe: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """
-        Dataset-specific cleaning.
-
-        Uses the BaseLoader implementation.
-        """
-
-        return super().clean(
-
-            dataframe
-
-        )
-
-    # -----------------------------------------------------------------
-
-    def before_load(
-        self,
-        dataframe: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """
-        Execute Order Items business transformations.
-        """
-
-        return self.transformer.transform(
-
-            dataframe
-
-        )
-
-
-# =============================================================================
-# Standalone Execution
-# =============================================================================
-
-def main() -> None:
-
-    OrderItemsLoader().run()
-
-
-if __name__ == "__main__":
-
-    main()

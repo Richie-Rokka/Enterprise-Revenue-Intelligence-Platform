@@ -36,6 +36,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from src.etl.dataset_registry import DatasetRegistry
+from src.etl.results import PipelineResult
+
 from src.observability import get_logger
 
 
@@ -78,24 +81,57 @@ class ETLManager:
 
         self.summary = ETLSummary()
 
+        self.pipeline_results: list[PipelineResult] = []
+
     # -------------------------------------------------------------------------
 
     def run_pipeline(self) -> ETLSummary:
         """
-        Execute the complete ETL pipeline.
+        Execute all registered ETL pipelines.
         """
 
         logger.info("=" * 60)
         logger.info("ETL PIPELINE STARTED")
         logger.info("=" * 60)
 
-        self.extract()
+        self.summary = ETLSummary()
 
-        self.transform()
+        self.pipeline_results.clear()
 
-        self.validate()
+        DatasetRegistry.register_all()
 
-        self.load()
+        for dataset_name in DatasetRegistry.registered_datasets():
+
+            logger.info(
+                "Executing pipeline: %s",
+                dataset_name,
+            )
+
+            pipeline = DatasetRegistry.build_pipeline(
+                dataset_name
+            )
+
+            result = pipeline.execute()
+
+            self.pipeline_results.append(
+                result
+            )
+
+            self.summary.extracted_rows += (
+                result.rows_extracted
+            )
+
+            self.summary.transformed_rows += (
+                result.rows_transformed
+            )
+
+            self.summary.validated_rows += (
+                result.rows_validated
+            )
+
+            self.summary.loaded_rows += (
+                result.load_result.rows_loaded
+            )
 
         logger.info("=" * 60)
         logger.info("ETL PIPELINE COMPLETED")
@@ -105,56 +141,5 @@ class ETLManager:
 
     # -------------------------------------------------------------------------
 
-    def extract(self) -> None:
-        """
-        Execute extraction stage.
-        """
 
-        logger.info("Extract stage started.")
-
-        # TODO:
-        # Invoke Extract Manager
-
-        logger.info("Extract stage completed.")
-
-    # -------------------------------------------------------------------------
-
-    def transform(self) -> None:
-        """
-        Execute transformation stage.
-        """
-
-        logger.info("Transform stage started.")
-
-        # TODO:
-        # Invoke Transform Manager
-
-        logger.info("Transform stage completed.")
-
-    # -------------------------------------------------------------------------
-
-    def validate(self) -> None:
-        """
-        Execute validation stage.
-        """
-
-        logger.info("Validation stage started.")
-
-        # TODO:
-        # Invoke Validation Manager
-
-        logger.info("Validation stage completed.")
-
-    # -------------------------------------------------------------------------
-
-    def load(self) -> None:
-        """
-        Execute load stage.
-        """
-
-        logger.info("Load stage started.")
-
-        # TODO:
-        # Invoke Load Manager
-
-        logger.info("Load stage completed.")
+   

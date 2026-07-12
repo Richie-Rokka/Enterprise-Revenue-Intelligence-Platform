@@ -93,11 +93,11 @@ class CSVExtractor(BaseExtractor):
 
         logger.info(
 
-            "Extracted %,d rows from %s",
+            "Extracted %s rows from %s",
 
-            len(dataframe),
+            f"{len(dataframe):,}",
 
-            csv_path.name,
+            self.context.source_path.name
 
         )
 

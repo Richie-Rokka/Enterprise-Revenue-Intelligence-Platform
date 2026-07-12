@@ -1,11 +1,22 @@
 """
 ===============================================================================
-Enterprise Revenue Intelligence Platform (ERIP)
+Enterprise Load framework.
+
+Responsibilities
+----------------
+• Persist validated datasets
+• Enrich enterprise metadata
+• Execute PostgreSQL COPY
+• Manage transactions
+• Produce LoadResult
+
+This class represents the canonical "L" stage of the
+Enterprise ETL Pipeline.
 
 Module      : base_loader.py
 Package     : src.load
 Purpose     : Enterprise Base Loader Framework
-Version     : 2.0.0
+Version     : 3.3.0
 ===============================================================================
 """
 
@@ -30,6 +41,8 @@ from src.config.config import config
 from src.observability.logger import get_logger
 from src.observability.memory import get_memory_usage
 from src.etl.metadata.metadata_builder import MetadataBuilder
+from src.etl.results import LoadResult
+from src.etl.context import ETLContext
 
 
 class BaseLoader(ABC):
@@ -42,6 +55,7 @@ class BaseLoader(ABC):
         source_file: str | Path,
         target_table: str,
         required_columns: Iterable[str],
+        context: ETLContext | None = None,
         connection: connection | None = None,
         truncate_before_load: bool = True,
         remove_duplicates: bool = False,
@@ -64,6 +78,8 @@ class BaseLoader(ABC):
         self.remove_duplicates = remove_duplicates
 
         self.logger = get_logger(self.__class__.__name__)
+
+        self.context = context
 
         # ---------------------------------------------------------------------
         # Enterprise Metadata
@@ -129,6 +145,10 @@ class BaseLoader(ABC):
                 "Database connection closed."
             )
 
+    # Legacy extension hook.
+    #
+    # Retained for backward compatibility during the migration.
+
     # -------------------------------------------------------------------------
     # Hooks
     # -------------------------------------------------------------------------
@@ -177,6 +197,15 @@ class BaseLoader(ABC):
                 row[0]
                 for row in cursor.fetchall()
             ]
+
+    # -------------------------------------------------------------------------
+    # Legacy Compatibility Layer (Deprecated)
+    #
+    # These methods support the legacy standalone loader execution model.
+    #
+    # They will be removed after every dataset has been migrated to the
+    # enterprise ETLPipeline architecture.
+    # -------------------------------------------------------------------------
 
     # -------------------------------------------------------------------------
     # CSV
@@ -443,15 +472,195 @@ class BaseLoader(ABC):
         self.logger.info("=" * 70)
         self.logger.info("ERIP STAGING LOAD SUMMARY")
         self.logger.info("=" * 70)
-        self.logger.info(f"Source File   : {self.source_file.name}")
-        self.logger.info(f"Target Table  : {self.target_table}")
-        self.logger.info(f"Rows Read     : {self.rows_read:,}")
-        self.logger.info(f"Rows Loaded   : {self.rows_loaded:,}")
-        self.logger.info(f"Rows Rejected : {self.rows_rejected:,}")
-        self.logger.info(f"Memory Usage  : {memory.current_mb:.2f} MB")
-        self.logger.info(f"Execution     : {duration:.3f} sec")
-        self.logger.info("Status        : SUCCESS")
+
+        self.logger.info(
+            "Source File   : %s",
+            self.source_file.name,
+        )
+
+        self.logger.info(
+            "Target Table  : %s",
+            self.target_table,
+        )
+
+        self.logger.info(
+            "Rows Read     : %s",
+            f"{self.rows_read:,}",
+        )
+
+        self.logger.info(
+            "Rows Loaded   : %s",
+            f"{self.rows_loaded:,}",
+        )
+
+        self.logger.info(
+            "Rows Rejected : %s",
+            f"{self.rows_rejected:,}",
+        )
+
+        self.logger.info(
+            "Memory Usage  : %.2f MB",
+            memory.current_mb,
+        )
+
+        self.logger.info(
+        "Execution     : %.3f sec",
+            duration,
+        )
+
+        status = (
+            self.context.status
+            if self.context is not None
+            else "SUCCESS"
+        )
+
+        self.logger.info(
+            "Status        : %s",
+            status,
+        )
+
         self.logger.info("=" * 70)
+
+    # -------------------------------------------------------------------------
+    # Enterprise Load API
+    # -------------------------------------------------------------------------
+
+    def load(
+        self,
+        dataframe: pd.DataFrame,
+    ) -> LoadResult:
+        """
+        Enterprise loading API.
+
+        This method represents the canonical "Load" stage of the
+        enterprise ETL pipeline.
+
+        Expected input:
+            - Extracted
+            - Transformed
+            - Validated
+
+        The loader is responsible only for persistence,
+        metadata enrichment and transaction management.
+
+        Returns
+        -------
+        int
+            Number of rows successfully loaded.
+        """
+
+        try:
+
+            self.start_time = time.perf_counter()
+
+            self.connect()
+
+            builder = MetadataBuilder(
+
+                source_system=self.source_system_code,
+
+                source_file=self.source_file.name,
+
+                etl_version=self.etl_version,
+
+            )
+
+            dataframe = builder.build(dataframe)
+
+            self.truncate_table()
+
+            self.copy_dataframe(dataframe)
+
+            self.after_load()
+
+            self.after_load()
+
+            if self.context is not None:
+
+                self.context.add_rows_loaded(
+                    self.rows_loaded
+                )
+
+            if self.connection is not None and self.owns_connection:
+
+                self.connection.commit()
+
+            self.end_time = time.perf_counter()
+
+            if self.context is not None:
+
+                self.rows_read = self.context.rows_extracted
+
+                self.context.finish()
+
+            # -----------------------------------------------------------------
+            # Synchronize enterprise ETL context metrics with legacy loader
+            # summary during migration.
+            # -----------------------------------------------------------------
+
+            if self.context is not None:
+
+                self.rows_read = self.context.rows_extracted
+
+            self.summary()
+
+            duration = round(
+                self.end_time - self.start_time,
+                3,
+            )
+
+            return LoadResult(
+
+                target_table=self.target_table,
+
+                rows_loaded=self.rows_loaded,
+
+                rows_rejected=self.rows_rejected,
+
+                batch_id=self.batch_id,
+
+                load_id=self.load_id,
+
+                duration_seconds=duration,
+
+                success=True,
+
+            )
+
+        except Exception:
+
+            self.rows_rejected = len(dataframe)
+
+            if (
+                self.connection is not None
+                and self.owns_connection
+            ):
+
+                self.connection.rollback()
+
+            self.logger.exception(
+                "Failed loading %s",
+                self.target_table,
+            )
+
+            raise
+
+        finally:
+
+            self.disconnect()
+
+        """
+        DEPRECATED
+
+        Use:
+
+            ETLPipeline.execute()
+
+        instead.
+
+        This method exists only to support datasets that have not yet
+        been migrated to the enterprise pipeline.
+        """
 
     # -------------------------------------------------------------------------
     # Pipeline
@@ -473,30 +682,9 @@ class BaseLoader(ABC):
 
             dataframe = self.before_load(dataframe)
 
-            builder = MetadataBuilder(
+            result = self.load(dataframe)
 
-                source_system=self.source_system_code,
-
-                source_file=self.source_file.name,
-
-                etl_version=self.etl_version,
-
-            )
-
-            dataframe = builder.build(dataframe)
-            self.truncate_table()
-
-            self.copy_dataframe(dataframe)
-
-            self.after_load()
-
-            if self.connection is not None and self.owns_connection:
-
-                self.connection.commit()
-
-            self.end_time = time.perf_counter()
-
-            self.summary()
+            return result
 
         except Exception as ex:
 

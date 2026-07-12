@@ -27,7 +27,10 @@ class CustomerLoader(BaseLoader):
     Enterprise Customer Loader.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        context: ETLContext,
+    ) -> None:
 
         super().__init__(
 
@@ -49,28 +52,12 @@ class CustomerLoader(BaseLoader):
 
             ],
 
-        )
-
-        self.context = ETLContext(
-
-            pipeline_name="Customer Pipeline",
-
-            source_name="Olist Customers",
-
-            source_type="CSV",
-
-            source_path=self.source_file,
-
-            target_schema="staging",
-
-            target_table="customer",
+            context=context,
 
         )
 
         self.transformer = CustomerTransformer(
-
             self.context
-
         )
 
     # -----------------------------------------------------------------
