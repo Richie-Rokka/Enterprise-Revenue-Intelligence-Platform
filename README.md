@@ -52,7 +52,7 @@ ERIP addresses these challenges by introducing a structured path from source dat
 
 The platform follows a layered architecture designed to separate ingestion, transformation, storage, semantic definition, and analytics.
 
-![Enterprise Revenue Intelligence Platform Architecture](docs/images/erip-platform-architecture.png)
+![ERIP Platform Architecture](docs/images/erip-platform-architecture.png)
 
 ### Core analytical flow
 
@@ -297,7 +297,7 @@ Execution logging and monitoring are treated as platform capabilities that suppo
 
 ---
 
-# Repository Structure
+# Key Repository Structure
 
 ```text
 Enterprise-Revenue-Intelligence-Platform/
@@ -421,17 +421,25 @@ The fact and dimension structure provides the foundation for semantic views and 
 
 # Documentation
 
-The repository includes supporting documentation for platform development and standards.
+The repository includes architecture, engineering, migration, quality, and project-status documentation.
 
-Key documents include:
+## Architecture
 
-* Architecture documentation
-* ETL migration guidance
-* Dataset migration checklist
-* Metrics development standards
-* Project status documentation
+- [ERIP v4.5.0 Architecture](docs/architecture/ERIP_v4_5_architecture.md) — Current canonical architecture reference for the committed platform baseline.
+- [ERIP v3 Architecture](docs/architecture/ERIP%20v3.md) — Historical architecture baseline retained to document the evolution of the platform.
+- [Data Quality Findings and Analytical Limitations](docs/architecture/data_quality_findings.md) — Historical assessment of source-data limitations and analytical considerations.
 
-These documents support the separation between platform implementation, development standards, and project-level progress.
+## Engineering and Development Standards
+
+- [ETL Migration Guide](docs/ETL_MIGRATION_GUIDE.md) — Enterprise ETL migration and framework standard.
+- [Dataset Migration Checklist](docs/DATASET_MIGRATION_CHECKLIST.md) — Historical completion record for the eight migrated datasets.
+- [Metrics Development Standard](docs/METRICS_DEVELOPMENT_STANDARD.md) — Standards for developing and maintaining analytical metrics.
+
+## Project Status
+
+- [Project Status](docs/PROJECT_STATUS.md) — Current implementation status, completed platform capabilities, and remaining roadmap.
+
+These documents provide a structured view of the platform architecture, engineering standards, historical data considerations, and project progress.
 
 ---
 
