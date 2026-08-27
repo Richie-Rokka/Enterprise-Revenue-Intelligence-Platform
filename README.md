@@ -53,8 +53,6 @@ ERIP addresses these challenges by introducing a structured path from source dat
 The platform follows a layered architecture designed to separate ingestion, transformation, storage, semantic definition, and analytics.
 
 ![Enterprise Revenue Intelligence Platform Architecture](docs/images/erip-platform-architecture.png)
-<img width="1535" height="1024" alt="erip-platform-architecture" src="https://github.com/user-attachments/assets/4c88c7e0-e292-44ec-b4ec-c244b927a6c2" />
-
 
 ### Core analytical flow
 
